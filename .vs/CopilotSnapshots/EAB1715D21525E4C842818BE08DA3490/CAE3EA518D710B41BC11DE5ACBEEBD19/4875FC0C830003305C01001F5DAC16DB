@@ -1,0 +1,192 @@
+﻿import React, { useState, FormEvent } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Fish } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import { Input } from '../components/ui/Input';
+import { Button } from '../components/ui/Button';
+import { Checkbox } from '../components/ui/Checkbox';
+
+export function Register() {
+  const [formData, setFormData] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    password: '',
+    confirmPassword: ''
+  });
+  const [gdprConsent, setGdprConsent] = useState(false);
+  const [marketingConsent, setMarketingConsent] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [loading, setLoading] = useState(false);
+  const { register } = useAuth();
+  const navigate = useNavigate();
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
+    if (errors[e.target.name]) {
+      setErrors(prev => ({ ...prev, [e.target.name]: '' }));
+    }
+  };
+
+  const validate = () => {
+    const newErrors: Record<string, string> = {};
+
+    if (!formData.firstName.trim()) newErrors.firstName = 'Imię jest wymagane';
+    if (!formData.lastName.trim()) newErrors.lastName = 'Nazwisko jest wymagane';
+    if (!formData.email.trim()) newErrors.email = 'Email jest wymagany';
+    if (!formData.password) newErrors.password = 'Hasło jest wymagane';
+    if (formData.password.length < 6) newErrors.password = 'Hasło musi mieć min. 6 znaków';
+    if (formData.password !== formData.confirmPassword) {
+      newErrors.confirmPassword = 'Hasła nie są zgodne';
+    }
+    if (!gdprConsent) newErrors.gdpr = 'Zgoda RODO jest wymagana';
+
+    return newErrors;
+  };
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+
+    const validationErrors = validate();
+    if (Object.keys(validationErrors).length > 0) {
+      setErrors(validationErrors);
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await register({
+        email: formData.email,
+        password: formData.password,
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        gdprConsent,
+        marketingConsent
+      });
+      navigate('/dashboard');
+    } catch (err) {
+      setErrors({ general: 'Wystąpił błąd podczas rejestracji' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-[#E8F5E9] via-gray-50 to-[#E3F2FD] flex items-center justify-center p-4 py-12">
+      <div className="w-full max-w-md">
+        {/* Logo & Title */}
+        <div className="text-center mb-8">
+          <Link to="/login" className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-[#2E7D32] to-[#1B5E20] rounded-2xl mb-4 shadow-lg hover:scale-105 transition-transform">
+            <Fish className="w-8 h-8 text-white" />
+          </Link>
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">Utwórz konto</h1>
+          <p className="text-gray-600">Dołącz do społeczności wędkarzy</p>
+        </div>
+
+        {/* Register Form */}
+        <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-200">
+          {errors.general && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+              {errors.general}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <Input
+                label="Imię"
+                name="firstName"
+                placeholder="Jan"
+                value={formData.firstName}
+                onChange={handleChange}
+                error={errors.firstName}
+                required
+              />
+              <Input
+                label="Nazwisko"
+                name="lastName"
+                placeholder="Kowalski"
+                value={formData.lastName}
+                onChange={handleChange}
+                error={errors.lastName}
+                required
+              />
+            </div>
+
+            <Input
+              label="Email"
+              type="email"
+              name="email"
+              placeholder="twoj@email.pl"
+              value={formData.email}
+              onChange={handleChange}
+              error={errors.email}
+              required
+            />
+
+            <Input
+              label="Hasło"
+              type="password"
+              name="password"
+              placeholder="Min. 6 znaków"
+              value={formData.password}
+              onChange={handleChange}
+              error={errors.password}
+              required
+            />
+
+            <Input
+              label="Potwierdź hasło"
+              type="password"
+              name="confirmPassword"
+              placeholder="Powtórz hasło"
+              value={formData.confirmPassword}
+              onChange={handleChange}
+              error={errors.confirmPassword}
+              required
+            />
+
+            <div className="space-y-3 pt-2">
+              <div>
+                <Checkbox
+                  label="Wyrażam zgodę na przetwarzanie danych osobowych zgodnie z RODO (wymagane)"
+                  checked={gdprConsent}
+                  onChange={(e) => setGdprConsent(e.target.checked)}
+                />
+                {errors.gdpr && (
+                  <p className="mt-1 text-sm text-red-600">{errors.gdpr}</p>
+                )}
+              </div>
+
+              <Checkbox
+                label="Zgoda marketingowa - chcę otrzymywać informacje o nowościach (opcjonalne)"
+                checked={marketingConsent}
+                onChange={(e) => setMarketingConsent(e.target.checked)}
+              />
+            </div>
+
+            <Button
+              type="submit"
+              className="w-full mt-6"
+              disabled={loading}
+            >
+              {loading ? 'Tworzenie konta...' : 'Zarejestruj'}
+            </Button>
+          </form>
+
+          <div className="mt-6 text-center">
+            <p className="text-sm text-gray-600">
+              Masz już konto?{' '}
+              <Link
+                to="/login"
+                className="text-[#2E7D32] hover:text-[#1B5E20] font-medium"
+              >
+                Zaloguj się
+              </Link>
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

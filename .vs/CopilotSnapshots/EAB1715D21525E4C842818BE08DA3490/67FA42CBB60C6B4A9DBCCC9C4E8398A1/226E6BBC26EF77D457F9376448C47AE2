@@ -1,0 +1,176 @@
+﻿import React, { createContext, useContext, useState, ReactNode } from 'react';
+import axios from 'axios';
+import { User as UserType, Role } from '../types';
+
+const API_BASE_URL = process.env.VITE_API_URL || 'http://localhost:8000';
+
+interface User {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  licenseNumber?: string;
+  status: 'active' | 'inactive' | 'blocked';
+  roles: Role[];
+}
+
+interface AuthContextType {
+  user: User | null;
+  login: (email: string, password: string) => Promise<void>;
+  register: (data: RegisterData) => Promise<void>;
+  logout: () => void;
+  updateProfile: (data: Partial<User>) => Promise<void>;
+  deleteAccount: () => Promise<void>;
+  hasRole: (roleName: string) => boolean;
+}
+
+interface RegisterData {
+  email: string;
+  password: string;
+  firstName: string;
+  lastName: string;
+  gdprConsent: boolean;
+  marketingConsent: boolean;
+}
+
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [user, setUser] = useState<User | null>(() => {
+    const stored = localStorage.getItem('fish_track_user');
+    return stored ? JSON.parse(stored) : null;
+  });
+
+  const login = async (email: string, password: string) => {
+    try {
+      const response = await axios.post(`${API_BASE_URL}/api/auth/login`, {
+        username: email,
+        password: password
+      });
+
+      const token = response.data.access_token;
+      localStorage.setItem('auth_token', token);
+
+      // Fetch user data
+      const userResponse = await axios.get(`${API_BASE_URL}/api/users/me`, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+
+      const mockUser: User = {
+        id: userResponse.data.id || '1',
+        email: userResponse.data.email || email,
+        firstName: userResponse.data.first_name || 'Jan',
+        lastName: userResponse.data.last_name || 'Kowalski',
+        licenseNumber: userResponse.data.license_number || 'PZW/2024/12345',
+        status: userResponse.data.status || 'active',
+        roles: userResponse.data.roles || [
+          {
+            id: '1',
+            name: 'Wędkarz',
+            description: 'Podstawowy użytkownik systemu',
+            permissions: []
+          }
+        ]
+      };
+
+      setUser(mockUser);
+      localStorage.setItem('fish_track_user', JSON.stringify(mockUser));
+    } catch (error: any) {
+      throw new Error(error.response?.data?.detail || 'Błąd logowania');
+    }
+  };
+
+  const register = async (data: RegisterData) => {
+    try {
+      const response = await axios.post(`${API_BASE_URL}/api/auth/register`, {
+        email: data.email,
+        password: data.password,
+        first_name: data.firstName,
+        last_name: data.lastName
+      });
+
+      const newUser: User = {
+        id: response.data.id,
+        email: response.data.email,
+        firstName: response.data.first_name,
+        lastName: response.data.last_name,
+        status: 'active',
+        roles: [
+          {
+            id: '1',
+            name: 'Wędkarz',
+            description: 'Podstawowy użytkownik systemu',
+            permissions: []
+          }
+        ]
+      };
+
+      setUser(newUser);
+      localStorage.setItem('fish_track_user', JSON.stringify(newUser));
+    } catch (error: any) {
+      throw new Error(error.response?.data?.detail || 'Błąd rejestracji');
+    }
+  };
+
+  const logout = () => {
+    setUser(null);
+    localStorage.removeItem('fish_track_user');
+    localStorage.removeItem('auth_token');
+  };
+
+  const updateProfile = async (data: Partial<User>) => {
+    if (!user) return;
+
+    try {
+      const token = localStorage.getItem('auth_token');
+      await axios.put(`${API_BASE_URL}/api/users/me`, data, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+
+      const updatedUser = { ...user, ...data };
+      setUser(updatedUser);
+      localStorage.setItem('fish_track_user', JSON.stringify(updatedUser));
+    } catch (error: any) {
+      throw new Error(error.response?.data?.detail || 'Błąd aktualizacji profilu');
+    }
+  };
+
+  const deleteAccount = async () => {
+    try {
+      const token = localStorage.getItem('auth_token');
+      await axios.delete(`${API_BASE_URL}/api/users/me`, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+      setUser(null);
+      localStorage.removeItem('fish_track_user');
+      localStorage.removeItem('auth_token');
+    } catch (error: any) {
+      throw new Error(error.response?.data?.detail || 'Błąd usuwania konta');
+    }
+  };
+
+  const hasRole = (roleName: string): boolean => {
+    if (!user) return false;
+    return user.roles.some(role => role.name === roleName);
+  };
+
+  return (
+    <AuthContext.Provider value={{ user, login, register, logout, updateProfile, deleteAccount, hasRole }}>
+      {children}
+    </AuthContext.Provider>
+  );
+}
+
+export function useAuth() {
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+}

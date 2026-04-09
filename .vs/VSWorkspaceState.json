@@ -1,0 +1,16 @@
+{
+  "ExpandedNodes": [
+    "",
+    "\\backend",
+    "\\backend\\routes",
+    "\\backend\\routes\\__pycache__",
+    "\\backend\\__pycache__",
+    "\\frontend",
+    "\\frontend\\src",
+    "\\frontend\\src\\data",
+    "\\frontend\\src\\pages",
+    "\\frontend\\src\\types"
+  ],
+  "SelectedNode": "\\backend\\schemas.py",
+  "PreviewInSolutionExplorer": false
+}

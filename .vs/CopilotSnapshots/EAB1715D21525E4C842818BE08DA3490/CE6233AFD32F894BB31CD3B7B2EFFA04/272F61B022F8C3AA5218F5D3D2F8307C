@@ -1,0 +1,242 @@
+﻿import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { ArrowLeft, Edit, Trash2, MapPin } from 'lucide-react';
+import axios from 'axios';
+import { Card } from '../components/ui/Card';
+import { Button } from '../components/ui/Button';
+import MapDrawer from '../components/MapDrawer';
+import { motion } from 'motion/react';
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
+interface FishingGround {
+  id: number;
+  nazwa: string;
+  typ: string;
+  powierzchnia_ha?: number;
+  glebokosc_max?: number;
+  opis?: string;
+  granice?: string;
+  created_at: string;
+  updated_at?: string;
+}
+
+export function FishingGroundDetail() {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const [ground, setGround] = useState<FishingGround | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchGround = async () => {
+      try {
+        const token = localStorage.getItem('auth_token');
+        const response = await axios.get(`${API_BASE_URL}/api/lowiska/${id}`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {}
+        });
+        setGround(response.data);
+        setError(null);
+      } catch (err: any) {
+        console.error('Error fetching fishing ground:', err);
+        setError('Błąd pobierania danych łowiska');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (id) {
+      fetchGround();
+    }
+  }, [id]);
+
+  const getTypeLabel = (type: string) => {
+    const labels: Record<string, string> = {
+      'jezioro': 'Jezioro',
+      'rzeka': 'Rzeka',
+      'staw': 'Staw',
+      'zalew': 'Zalew',
+      'kanal': 'Kanał'
+    };
+    return labels[type?.toLowerCase()] || type;
+  };
+
+  const getTypeColor = (type: string) => {
+    const colors: Record<string, string> = {
+      'jezioro': 'bg-blue-100 text-blue-700',
+      'rzeka': 'bg-cyan-100 text-cyan-700',
+      'staw': 'bg-green-100 text-green-700',
+      'zalew': 'bg-indigo-100 text-indigo-700',
+      'kanal': 'bg-purple-100 text-purple-700'
+    };
+    return colors[type?.toLowerCase()] || 'bg-gray-100 text-gray-700';
+  };
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <Button
+          variant="outline"
+          onClick={() => navigate('/lowiska')}
+          className="flex items-center gap-2"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Wróć do listy
+        </Button>
+        <Card className="p-12 text-center">
+          <p className="text-gray-600">Ładowanie danych łowiska...</p>
+        </Card>
+      </div>
+    );
+  }
+
+  if (error || !ground) {
+    return (
+      <div className="space-y-6">
+        <Button
+          variant="outline"
+          onClick={() => navigate('/lowiska')}
+          className="flex items-center gap-2"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Wróć do listy
+        </Button>
+        <Card className="p-12 text-center bg-red-50 border-red-200">
+          <p className="text-red-600">{error || 'Łowisko nie znalezione'}</p>
+        </Card>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <motion.div
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+      >
+        <Button
+          variant="outline"
+          onClick={() => navigate('/lowiska')}
+          className="mb-4 flex items-center gap-2"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Wróć do listy
+        </Button>
+
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">{ground.nazwa}</h1>
+            <div className="flex items-center gap-3">
+              <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${getTypeColor(ground.typ)}`}>
+                {getTypeLabel(ground.typ)}
+              </span>
+              {ground.created_at && (
+                <p className="text-sm text-gray-600">
+                  Dodano: {new Date(ground.created_at).toLocaleDateString('pl-PL')}
+                </p>
+              )}
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => navigate(`/lowiska/${id}/edytuj`)}
+              className="flex items-center gap-2"
+            >
+              <Edit className="w-4 h-4" />
+              Edytuj
+            </Button>
+            <Button
+              variant="danger"
+              className="flex items-center gap-2"
+            >
+              <Trash2 className="w-4 h-4" />
+              Usuń
+            </Button>
+          </div>
+        </div>
+      </motion.div>
+
+      {/* Main Content */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
+      >
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Info Card */}
+          <Card className="p-6">
+            <h2 className="text-xl font-bold text-gray-900 mb-4">Informacje</h2>
+            <div className="space-y-4">
+              {ground.powierzchnia_ha !== null && ground.powierzchnia_ha !== undefined && (
+                <div>
+                  <p className="text-sm text-gray-600 mb-1">Powierzchnia</p>
+                  <p className="text-lg font-semibold text-gray-900">{ground.powierzchnia_ha} ha</p>
+                </div>
+              )}
+              
+              {ground.glebokosc_max !== null && ground.glebokosc_max !== undefined && (
+                <div>
+                  <p className="text-sm text-gray-600 mb-1">Maksymalna głębokość</p>
+                  <p className="text-lg font-semibold text-gray-900">{ground.glebokosc_max} m</p>
+                </div>
+              )}
+
+              {ground.opis && (
+                <div>
+                  <p className="text-sm text-gray-600 mb-1">Opis</p>
+                  <p className="text-gray-900">{ground.opis}</p>
+                </div>
+              )}
+            </div>
+          </Card>
+
+          {/* Map Card */}
+          <Card className="p-6">
+            <h2 className="text-xl font-bold text-gray-900 mb-4">Granice na mapie</h2>
+            {ground.granice ? (
+              <MapDrawer onPolygonChange={() => {}} initialPolygonWKT={ground.granice} readonly={true} />
+            ) : (
+              <div className="h-64 bg-gray-100 rounded-lg flex items-center justify-center border-2 border-dashed border-gray-300">
+                <div className="text-center">
+                  <MapPin className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                  <p className="text-sm text-gray-600">Brak zaznaczonych granic na mapie</p>
+                </div>
+              </div>
+            )}
+          </Card>
+        </div>
+      </motion.div>
+
+      {/* Stats Section */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2 }}
+      >
+        <Card className="p-6 bg-blue-50 border-blue-200">
+          <h2 className="text-lg font-bold text-gray-900 mb-4">Statystyki</h2>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div>
+              <p className="text-sm text-gray-600 mb-1">Sesje</p>
+              <p className="text-2xl font-bold text-blue-600">0</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-600 mb-1">Złowienia</p>
+              <p className="text-2xl font-bold text-green-600">0</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-600 mb-1">Ostatnia wizyta</p>
+              <p className="text-2xl font-bold text-purple-600">-</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-600 mb-1">Rating</p>
+              <p className="text-2xl font-bold text-yellow-600">-</p>
+            </div>
+          </div>
+        </Card>
+      </motion.div>
+    </div>
+  );
+}

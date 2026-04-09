@@ -1,0 +1,20 @@
+﻿from fastapi import APIRouter, Depends  
+from sqlalchemy.ext.asyncio import AsyncSession
+from database import get_db
+import crud, schemas
+from jwt_utils import get_current_user
+import models
+
+router = APIRouter(prefix="/api/lowiska", tags=["lowiska"])
+
+@router.get("/", response_model=list[schemas.LowiskoOut])
+async def list_lowiska(db: AsyncSession = Depends(get_db)):
+    return await crud.get_lowiska(db)
+
+@router.post("/", response_model=schemas.LowiskoOut)
+async def create_lowisko(
+    lowisko: schemas.LowiskoCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: models.Uzytkownik = Depends(get_current_user)
+):
+    return await crud.create_lowisko(db, lowisko, current_user.id)
