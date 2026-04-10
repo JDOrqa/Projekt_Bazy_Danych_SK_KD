@@ -1,0 +1,59 @@
+﻿import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import toast from 'react-hot-toast';
+import api from '../api';
+
+export default function Register() {
+  const [form, setForm] = useState({ email: '', password: '', imie: '', nazwisko: '', zgoda_marketingowa: false });
+  const [errors, setErrors] = useState({});
+  const navigate = useNavigate();
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setErrors({});
+    try {
+      await api.post('/auth/register', form);
+      toast.success('Konto utworzone – możesz się zalogować');
+      navigate('/login');
+    } catch (err) {
+      console.error('Błąd rejestracji:', err.response?.data);
+      if (err.response && err.response.status === 422) {
+        const detail = err.response.data.detail;
+        if (Array.isArray(detail)) {
+          const fieldErrors = {};
+          detail.forEach(errItem => {
+            const field = errItem.loc[errItem.loc.length - 1];
+            fieldErrors[field] = errItem.msg;
+          });
+          setErrors(fieldErrors);
+          toast.error('Sprawdź poprawność pól formularza');
+        } else {
+          toast.error(detail || 'Błąd walidacji');
+        }
+      } else {
+        toast.error(err.response?.data?.detail || 'Błąd rejestracji');
+      }
+    }
+  };
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-100">
+      <form onSubmit={handleSubmit} className="bg-white p-8 rounded shadow-md w-96">
+        <h2 className="text-2xl font-bold mb-6 text-center">Rejestracja</h2>
+        <input type="text" placeholder="Imię" value={form.imie} onChange={e => setForm({...form, imie: e.target.value})} className="w-full p-2 border mb-2 rounded" required />
+        {errors.imie && <p className="text-red-500 text-sm mb-2">{errors.imie}</p>}
+        <input type="text" placeholder="Nazwisko" value={form.nazwisko} onChange={e => setForm({...form, nazwisko: e.target.value})} className="w-full p-2 border mb-2 rounded" required />
+        {errors.nazwisko && <p className="text-red-500 text-sm mb-2">{errors.nazwisko}</p>}
+        <input type="email" placeholder="Email" value={form.email} onChange={e => setForm({...form, email: e.target.value})} className="w-full p-2 border mb-2 rounded" required />
+        {errors.email && <p className="text-red-500 text-sm mb-2">{errors.email}</p>}
+        <input type="password" placeholder="Hasło (min. 4 znaków)" value={form.password} onChange={e => setForm({...form, password: e.target.value})} className="w-full p-2 border mb-2 rounded" required />
+        {errors.password && <p className="text-red-500 text-sm mb-2">{errors.password}</p>}
+        <label className="flex items-center gap-2 mb-4">
+          <input type="checkbox" checked={form.zgoda_marketingowa} onChange={e => setForm({...form, zgoda_marketingowa: e.target.checked})} />
+          <span className="text-sm">Wyrażam zgodę na przetwarzanie danych w celach marketingowych (dobrowolne)</span>
+        </label>
+        <button type="submit" className="w-full bg-green-600 text-white py-2 rounded hover:bg-green-700">Zarejestruj</button>
+      </form>
+    </div>
+  );
+}

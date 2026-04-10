@@ -1,0 +1,65 @@
+import React, { ReactNode } from 'react';
+import { Button } from './Button';
+
+interface ModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  title: string;
+  children: ReactNode;
+  confirmText?: string;
+  cancelText?: string;
+  onConfirm?: () => void;
+  confirmVariant?: 'primary' | 'secondary' | 'danger' | 'outline';
+  closeOnBackdropClick?: boolean;
+}
+
+export function Modal({
+  isOpen,
+  onClose,
+  title,
+  children,
+  confirmText,
+  cancelText = 'Zamknij',
+  onConfirm,
+  confirmVariant = 'primary',
+  closeOnBackdropClick = true
+}: ModalProps) {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div
+        className="bg-white rounded-2xl shadow-xl max-w-md w-full"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="px-6 py-4 border-b border-gray-200">
+          <h2 className="text-xl font-bold text-gray-900">{title}</h2>
+        </div>
+
+        {/* Body */}
+        <div className="px-6 py-6">
+          {children}
+        </div>
+
+        {/* Footer */}
+        <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-end gap-3">
+          <Button
+            variant="secondary"
+            onClick={onClose}
+          >
+            {cancelText}
+          </Button>
+          {confirmText && onConfirm && (
+            <Button
+              variant={confirmVariant}
+              onClick={onConfirm}
+            >
+              {confirmText}
+            </Button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
