@@ -18,6 +18,8 @@ import CatchHistory from './pages/CatchHistory';
 import UploadImage from './pages/UploadImage';
 import AdminPanel from './pages/AdminPanel';
 import GatunkiList from './pages/GatunkiList';
+import Userinfo from './pages/Userinfo';  
+
 
 function AppRoutes() {
     const { accessToken } = useAuth();
@@ -34,6 +36,7 @@ function AppRoutes() {
             <Route path="/upload-image" element={<PrivateRoute><UploadImage /></PrivateRoute>} />
             <Route path="/admin/*" element={<PrivateRoute><AdminPanel /></PrivateRoute>} />
             <Route path="/gatunki" element={<PrivateRoute><GatunkiList /></PrivateRoute>} />
+            <Route path="/userinfo" element={<PrivateRoute><Userinfo /></PrivateRoute>} /> 
             <Route path="*" element={<Navigate to="/dashboard" />} />
         </Routes>
     );
