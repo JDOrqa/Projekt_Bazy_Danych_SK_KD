@@ -39,15 +39,12 @@ async def update_my_profile(
     db: AsyncSession = Depends(get_db)
 ):
     """Aktualizacja danych profilu."""
-    if update_data.imie:
-        current_user.imie = update_data.imie
-    if update_data.nazwisko:
-        current_user.nazwisko = update_data.nazwisko
-    if update_data.nr_licencji:
-        current_user.nr_licencji = update_data.nr_licencji
+    update_fields = update_data.dict(exclude_none=True)
+    for field_name, value in update_fields.items():
+        setattr(current_user, field_name, value)
     await db.commit()
     await db.refresh(current_user)
-    await log_audit(db, current_user.id, "UZYTKOWNICY", current_user.id, "UPDATE", None, update_data.dict())
+    await log_audit(db, current_user.id, "UZYTKOWNICY", current_user.id, "UPDATE", None, update_fields)
     return UserProfile.from_orm(current_user)
 
 @router.post("/change-password")
