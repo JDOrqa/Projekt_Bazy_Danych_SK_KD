@@ -8,6 +8,7 @@ from database import get_db
 from schemas.user import UserProfile, UserUpdate, ChangePassword
 from dependencies.auth import get_current_user
 from models.uzytkownik import Uzytkownik
+from models.rola import Rola, UzytkownikRola
 from models.sesja_polowu import SesjaPolowu
 from models.zlowiona_ryba import ZlowionaRyba
 from models.lowisko import Lowisko
@@ -17,19 +18,29 @@ from services.audit_log import log_audit
 
 router = APIRouter()
 
+async def get_user_roles(user_id: int, db: AsyncSession) -> list[str]:
+    result = await db.execute(
+        select(Rola.nazwa)
+        .join(UzytkownikRola, UzytkownikRola.rola_id == Rola.id)
+        .where(UzytkownikRola.uzytkownik_id == user_id)
+    )
+    return [row[0] for row in result.all()]
+
 @router.get("/me", response_model=UserProfile)
 async def get_my_profile(
     current_user: Uzytkownik = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """Pobiera dane zalogowanego użytkownika."""
+    roles = await get_user_roles(current_user.id, db)
     return UserProfile(
         id=current_user.id,
         email=current_user.email,
         imie=current_user.imie,
         nazwisko=current_user.nazwisko,
         nr_licencji=current_user.nr_licencji,
-        status=current_user.status
+        status=current_user.status,
+        roles=roles
     )
 
 @router.put("/me", response_model=UserProfile)
@@ -45,7 +56,16 @@ async def update_my_profile(
     await db.commit()
     await db.refresh(current_user)
     await log_audit(db, current_user.id, "UZYTKOWNICY", current_user.id, "UPDATE", None, update_fields)
-    return UserProfile.from_orm(current_user)
+    roles = await get_user_roles(current_user.id, db)
+    return UserProfile(
+        id=current_user.id,
+        email=current_user.email,
+        imie=current_user.imie,
+        nazwisko=current_user.nazwisko,
+        nr_licencji=current_user.nr_licencji,
+        status=current_user.status,
+        roles=roles
+    )
 
 @router.post("/change-password")
 async def change_password(
