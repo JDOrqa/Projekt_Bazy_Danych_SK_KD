@@ -20,6 +20,14 @@ from services.audit_log import log_audit
 
 router = APIRouter()
 
+async def get_user_roles(user_id: int, db: AsyncSession) -> list[str]:
+    result = await db.execute(
+        select(Rola.nazwa)
+        .join(UzytkownikRola, UzytkownikRola.rola_id == Rola.id)
+        .where(UzytkownikRola.uzytkownik_id == user_id)
+    )
+    return [row[0] for row in result.all()]
+
 # --- Zarządzanie użytkownikami (tylko Admin) ---
 @router.get("/users", response_model=list[UserResponse])
 async def list_users(
@@ -30,7 +38,19 @@ async def list_users(
 ):
     """Lista wszystkich użytkowników (Admin)."""
     result = await db.execute(select(Uzytkownik).offset(skip).limit(limit))
-    return result.scalars().all()
+    users = result.scalars().all()
+    response = []
+    for user in users:
+        response.append(UserResponse(
+            id=user.id,
+            email=user.email,
+            imie=user.imie,
+            nazwisko=user.nazwisko,
+            nr_licencji=user.nr_licencji,
+            status=user.status,
+            roles=await get_user_roles(user.id, db)
+        ))
+    return response
 
 @router.patch("/users/{user_id}/status")
 async def change_user_status(
@@ -58,20 +78,25 @@ async def assign_role_to_user(
     current_user: Uzytkownik = Depends(require_permission("admin.roles.assign")),
     db: AsyncSession = Depends(get_db)
 ):
-    """Przypisanie roli użytkownikowi."""
+    """Przypisanie roli użytkownikowi. Użytkownik może mieć maksymalnie jedną rolę."""
     user = await db.get(Uzytkownik, user_id)
     role = await db.get(Rola, role_id)
     if not user or not role:
         raise HTTPException(status_code=404, detail="Użytkownik lub rola nie istnieje")
-    # Sprawdź czy już ma
-    existing = await db.execute(
-        select(UzytkownikRola).where(
-            UzytkownikRola.uzytkownik_id == user_id,
-            UzytkownikRola.rola_id == role_id
-        )
+
+    existing_roles_result = await db.execute(
+        select(UzytkownikRola).where(UzytkownikRola.uzytkownik_id == user_id)
     )
-    if existing.scalar_one_or_none():
+    existing_roles = existing_roles_result.scalars().all()
+
+    if any(existing.rola_id == role_id for existing in existing_roles):
         raise HTTPException(status_code=400, detail="Użytkownik już ma tę rolę")
+
+    if existing_roles:
+        await db.execute(
+            delete(UzytkownikRola).where(UzytkownikRola.uzytkownik_id == user_id)
+        )
+
     user_role = UzytkownikRola(uzytkownik_id=user_id, rola_id=role_id)
     db.add(user_role)
     await db.commit()

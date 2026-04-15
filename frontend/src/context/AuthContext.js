@@ -1,5 +1,5 @@
 // frontend/src/context/AuthContext.js
-import React, { createContext, useState, useEffect, useContext } from 'react';
+import React, { createContext, useState, useEffect, useContext, useCallback, useMemo } from 'react';
 import axios from 'axios';
 
 export const AuthContext = createContext();
@@ -10,9 +10,13 @@ export const AuthProvider = ({ children }) => {
     const [accessToken, setAccessToken] = useState(localStorage.getItem('access_token'));
     const [refreshToken, setRefreshToken] = useState(localStorage.getItem('refresh_token'));
     const [user, setUser] = useState(null);
+    const [loading, setLoading] = useState(true);
 
-    const fetchUser = async (token) => {
-        if (!token) return;
+    const fetchUser = useCallback(async (token) => {
+        if (!token) {
+            setLoading(false);
+            return;
+        }
         try {
             const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/users/me`, {
                 headers: { Authorization: `Bearer ${token}` }
@@ -20,11 +24,12 @@ export const AuthProvider = ({ children }) => {
             setUser(res.data);
         } catch (err) {
             console.error('Błąd pobierania profilu', err);
-            logout();
+        } finally {
+            setLoading(false);
         }
-    };
+    }, []);
 
-    const refreshAccessToken = async () => {
+    const refreshAccessToken = useCallback(async () => {
         if (!refreshToken) return;
         try {
             const response = await axios.post(`${process.env.REACT_APP_API_URL}/api/auth/refresh`, null, {
@@ -41,7 +46,7 @@ export const AuthProvider = ({ children }) => {
             console.error('Odświeżanie tokena nieudane', err);
             logout();
         }
-    };
+    }, [refreshToken, fetchUser]);
 
     useEffect(() => {
         if (accessToken) {
@@ -51,29 +56,41 @@ export const AuthProvider = ({ children }) => {
             return () => clearInterval(interval);
         } else {
             delete axios.defaults.headers.common['Authorization'];
+            setLoading(false);
         }
-    }, [accessToken]);
+    }, [accessToken, fetchUser, refreshAccessToken]);
 
-    const login = (access, refresh) => {
+    const login = useCallback((access, refresh) => {
+        setLoading(true);
         setAccessToken(access);
         setRefreshToken(refresh);
         localStorage.setItem('access_token', access);
         localStorage.setItem('refresh_token', refresh);
         axios.defaults.headers.common['Authorization'] = `Bearer ${access}`;
         fetchUser(access);
-    };
+    }, [fetchUser]);
 
-    const logout = () => {
+    const refreshUser = useCallback(async () => {
+        if (!accessToken) return;
+        await fetchUser(accessToken);
+    }, [accessToken, fetchUser]);
+
+    const logout = useCallback(() => {
         setAccessToken(null);
         setRefreshToken(null);
         localStorage.removeItem('access_token');
         localStorage.removeItem('refresh_token');
         delete axios.defaults.headers.common['Authorization'];
         setUser(null);
-    };
+    }, []);
+
+    const authValue = useMemo(
+        () => ({ accessToken, refreshToken, user, loading, login, logout, refreshUser }),
+        [accessToken, refreshToken, user, loading, login, logout, refreshUser]
+    );
 
     return (
-        <AuthContext.Provider value={{ accessToken, refreshToken, user, login, logout }}>
+        <AuthContext.Provider value={authValue}>
             {children}
         </AuthContext.Provider>
     );

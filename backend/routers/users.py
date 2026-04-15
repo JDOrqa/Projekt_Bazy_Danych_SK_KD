@@ -8,6 +8,7 @@ from database import get_db
 from schemas.user import UserProfile, UserUpdate, ChangePassword
 from dependencies.auth import get_current_user
 from models.uzytkownik import Uzytkownik
+from models.rola import Rola, UzytkownikRola
 from models.sesja_polowu import SesjaPolowu
 from models.zlowiona_ryba import ZlowionaRyba
 from models.lowisko import Lowisko
@@ -17,6 +18,14 @@ from utils.security import get_password_hash, verify_password
 from services.audit_log import log_audit
 
 router = APIRouter()
+
+async def get_user_roles(user_id: int, db: AsyncSession) -> list[str]:
+    result = await db.execute(
+        select(Rola.nazwa)
+        .join(UzytkownikRola, UzytkownikRola.rola_id == Rola.id)
+        .where(UzytkownikRola.uzytkownik_id == user_id)
+    )
+    return [row[0] for row in result.all()]
 
 @router.get("/me", response_model=UserProfile)
 async def get_my_profile(
