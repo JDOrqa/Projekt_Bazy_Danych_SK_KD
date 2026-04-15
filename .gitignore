@@ -1,0 +1,24 @@
+# Pliki cache Pythona
+__pycache__/
+*.pyc
+
+# Wirtualne środowisko
+venv/
+.env/
+
+# Pliki środowiskowe
+.env
+
+# Logi
+*.log
+
+# Baza danych
+*.db
+
+# Pliki systemowe
+.DS_Store
+
+.vs/
+node_modules/
+build/
+dist/

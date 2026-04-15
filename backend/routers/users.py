@@ -12,7 +12,8 @@ from models.rola import Rola, UzytkownikRola
 from models.sesja_polowu import SesjaPolowu
 from models.zlowiona_ryba import ZlowionaRyba
 from models.lowisko import Lowisko
-from models.gatunek import Gatunek          
+from models.gatunek import Gatunek
+from models.rola import Rola, UzytkownikRola   # <--- DODANE
 from utils.security import get_password_hash, verify_password
 from services.audit_log import log_audit
 
@@ -31,8 +32,15 @@ async def get_my_profile(
     current_user: Uzytkownik = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Pobiera dane zalogowanego użytkownika."""
-    roles = await get_user_roles(current_user.id, db)
+    """Pobiera dane zalogowanego użytkownika wraz z jego rolami."""
+    # Pobierz nazwy ról użytkownika
+    result = await db.execute(
+        select(Rola.nazwa)
+        .join(UzytkownikRola, Rola.id == UzytkownikRola.rola_id)
+        .where(UzytkownikRola.uzytkownik_id == current_user.id)
+    )
+    roles = result.scalars().all()
+    
     return UserProfile(
         id=current_user.id,
         email=current_user.email,
@@ -49,14 +57,25 @@ async def update_my_profile(
     current_user: Uzytkownik = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Aktualizacja danych profilu."""
-    update_fields = update_data.dict(exclude_none=True)
-    for field_name, value in update_fields.items():
-        setattr(current_user, field_name, value)
+    """Aktualizacja danych profilu (bez zmiany hasła)."""
+    if update_data.imie:
+        current_user.imie = update_data.imie
+    if update_data.nazwisko:
+        current_user.nazwisko = update_data.nazwisko
+    if update_data.nr_licencji:
+        current_user.nr_licencji = update_data.nr_licencji
     await db.commit()
     await db.refresh(current_user)
-    await log_audit(db, current_user.id, "UZYTKOWNICY", current_user.id, "UPDATE", None, update_fields)
-    roles = await get_user_roles(current_user.id, db)
+    await log_audit(db, current_user.id, "UZYTKOWNICY", current_user.id, "UPDATE", None, update_data.dict())
+    
+    # Pobierz role (tak samo jak wyżej)
+    result = await db.execute(
+        select(Rola.nazwa)
+        .join(UzytkownikRola, Rola.id == UzytkownikRola.rola_id)
+        .where(UzytkownikRola.uzytkownik_id == current_user.id)
+    )
+    roles = result.scalars().all()
+    
     return UserProfile(
         id=current_user.id,
         email=current_user.email,
@@ -73,7 +92,7 @@ async def change_password(
     current_user: Uzytkownik = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Zmiana hasła."""
+    """Zmiana hasła – wymaga podania starego hasła."""
     if not verify_password(data.old_password, current_user.haslo_hash):
         raise HTTPException(status_code=400, detail="Nieprawidłowe stare hasło")
     if data.new_password != data.confirm_password:
@@ -88,7 +107,13 @@ async def get_dashboard_stats(
     current_user: Uzytkownik = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Dashboard – statystyki użytkownika."""
+    """
+    Dashboard użytkownika – statystyki:
+    - liczba sesji połowów
+    - liczba złowionych ryb
+    - ulubione łowisko (najczęściej odwiedzane)
+    - ostatnie 5 połowów
+    """
     # Liczba sesji
     sesje_count = await db.execute(
         select(func.count()).select_from(SesjaPolowu).where(SesjaPolowu.uzytkownik_id == current_user.id)
@@ -100,7 +125,7 @@ async def get_dashboard_stats(
         .join(SesjaPolowu)
         .where(SesjaPolowu.uzytkownik_id == current_user.id)
     )
-    # Ulubione łowisko
+    # Ulubione łowisko – najwięcej sesji
     fav_lake = await db.execute(
         select(Lowisko.nazwa, func.count(SesjaPolowu.id))
         .join(SesjaPolowu, Lowisko.id == SesjaPolowu.lowisko_id)
@@ -110,7 +135,7 @@ async def get_dashboard_stats(
         .limit(1)
     )
     favorite = fav_lake.first()
-    # Ostatnie 5 połowów
+    # Ostatnie 5 połowów (z gatunkiem, wagą, datą)
     recent = await db.execute(
         select(ZlowionaRyba, Gatunek.nazwa_polska, SesjaPolowu.start_czas)
         .join(Gatunek, ZlowionaRyba.gatunek_id == Gatunek.id)
@@ -120,7 +145,7 @@ async def get_dashboard_stats(
         .limit(5)
     )
     recent_catches = [{"gatunek": r[1], "waga_kg": r[0].waga_kg, "data": r[2]} for r in recent.all()]
-
+    
     return {
         "liczba_sesji": sesje_count.scalar(),
         "liczba_zlowionych_ryb": ryby_count.scalar(),

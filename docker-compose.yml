@@ -18,6 +18,10 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
+    mem_limit: 256m
+    networks:
+      - wedkarz_network
 
   redis:
     image: redis:7-alpine
@@ -29,6 +33,10 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
+    mem_limit: 64m
+    networks:
+      - wedkarz_network
 
   backend:
     build: ./backend
@@ -42,10 +50,11 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    volumes:
-      - ./backend:/app
-      - uploads:/app/uploads
-    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload --reload-delay 2 --reload-dir /app --reload-include '*.py' --reload-exclude '*.pyc,__pycache__'
+    command: uvicorn main:app --host 0.0.0.0 --port 8000
+    restart: unless-stopped
+    mem_limit: 384m
+    networks:
+      - wedkarz_network
 
   frontend:
     build: ./frontend
@@ -56,10 +65,19 @@ services:
       - backend
     environment:
       - REACT_APP_API_URL=http://localhost:8000
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
+      - NODE_OPTIONS=--max-old-space-size=256
+      - WATCHPACK_POLLING=false
+      - CHOKIDAR_USEPOLLING=false
+    restart: unless-stopped
+    mem_limit: 384m
+    stdin_open: true
+    networks:
+      - wedkarz_network
     command: npm start
+
+networks:
+  wedkarz_network:
+    driver: bridge
 
 volumes:
   postgres_data:

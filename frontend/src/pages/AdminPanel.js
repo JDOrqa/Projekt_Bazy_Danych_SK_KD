@@ -2,7 +2,7 @@
 // Panel administratora – lista użytkowników, możliwość zmiany statusu i przypisywania ról.
 // Wymaga roli Admin.
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 

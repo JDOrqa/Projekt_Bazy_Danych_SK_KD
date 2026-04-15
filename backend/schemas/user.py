@@ -3,7 +3,7 @@
 # Używane przez: routers/users.py, routers/admin.py
 
 from pydantic import BaseModel, EmailStr, Field, validator
-from typing import Optional
+from typing import Optional, List
 
 class UserBase(BaseModel):
     email: EmailStr
@@ -17,7 +17,7 @@ class UserCreate(UserBase):
 class UserProfile(UserBase):
     id: int
     status: str
-    roles: list[str] = []
+    roles: List[str] = []
 
     class Config:
         from_attributes = True
