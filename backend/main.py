@@ -6,7 +6,7 @@ from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import text, select
+from sqlalchemy import text, select, func
 import logging
 
 from database import engine, AsyncSessionLocal, Base
@@ -122,11 +122,11 @@ async def seed_database(db: AsyncSession):
         
         # 4. Gatunki
         gatunki = [
-            ("Szczupak", "Esox lucius", "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5a/Esox_lucius1.jpg/800px-Esox_lucius1.jpg", "Drapieżnik, wymiar ochronny 50 cm"),
-            ("Okoń", "Perca fluviatilis", "https://upload.wikimedia.org/wikipedia/commons/thumb/7/7b/Perca_fluviatilis.jpg/800px-Perca_fluviatilis.jpg", "Brak wymiaru, limit 20 szt."),
-            ("Karp", "Cyprinus carpio", "https://upload.wikimedia.org/wikipedia/commons/thumb/3/34/Cyprinus_carpio.jpg/800px-Cyprinus_carpio.jpg", "Wymiar 40 cm"),
-            ("Leszcz", "Abramis brama", "https://upload.wikimedia.org/wikipedia/commons/thumb/9/97/Abramis_brama.jpg/800px-Abramis_brama.jpg", "Wymiar 25 cm"),
-            ("Sandacz", "Sander lucioperca", "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5b/Sander_lucioperca.jpg/800px-Sander_lucioperca.jpg", "Wymiar 45 cm"),
+            ("Szczupak", "Esox lucius", "https://upload.wikimedia.org/wikipedia/commons/0/03/HandlingBigPike.JPG", "Drapieżnik, wymiar ochronny 50 cm"),
+            ("Okoń", "Perca fluviatilis", "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e7/Perca_fluviatilis_2008_G1.jpg/640px-Perca_fluviatilis_2008_G1.jp", "Brak wymiaru, limit 20 szt."),
+            ("Karp", "Cyprinus carpio", "https://upload.wikimedia.org/wikipedia/commons/thumb/2/2f/Cyprinus_carpio-King_Carp.jpg/640px-Cyprinus_carpio-King_Carp.jpg", "Wymiar 40 cm"),
+            ("Leszcz", "Abramis brama", "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d2/Abramis_brama_by_RpM.JPG/640px-Abramis_brama_by_RpM.JPG", "Wymiar 25 cm"),
+            ("Sandacz", "Sander lucioperca", "https://upload.wikimedia.org/wikipedia/commons/thumb/2/28/Hal_-_Sander_lucioperca_-_1.jpg/640px-Hal_-_Sander_lucioperca_-_1.jpg", "Wymiar 45 cm"),
         ]
         for nazwa, lacina, url, opis in gatunki:
             result = await db.execute(select(Gatunek).where(Gatunek.nazwa_polska == nazwa))
@@ -176,6 +176,45 @@ async def seed_database(db: AsyncSession):
                 if not result.scalar_one_or_none():
                     db.add(UzytkownikRola(uzytkownik_id=user.id, rola_id=admin_role.id))
                     await db.commit()
+
+         # 7. Przykładowe łowiska (jeśli brak)
+        lowiska_data = [
+            ("Jezioro Białe", "jezioro", 
+             "POLYGON((21.5 52.0, 21.6 52.0, 21.6 52.1, 21.5 52.1, 21.5 52.0))", 
+             150.5, 12.3, "Piękne jezioro z czystą wodą."),
+            ("Rzeka Czarna", "rzeka", 
+             "POLYGON((22.0 51.9, 22.2 51.9, 22.2 52.0, 22.0 52.0, 22.0 51.9))", 
+             80.0, 4.5, "Rzeka o bystrym nurcie, dobra na spinning."),
+        ]
+        # Pobierz właściciela (np. admina lub pierwszego użytkownika)
+        owner_result = await db.execute(select(Uzytkownik).where(Uzytkownik.email == "admin@example.com"))
+        owner = owner_result.scalar_one_or_none()
+        if not owner:
+            # Jeśli admin nie istnieje (nietypowe), weź pierwszego użytkownika
+            owner_result = await db.execute(select(Uzytkownik).limit(1))
+            owner = owner_result.scalar_one_or_none()
+        
+        if owner:
+            for nazwa, typ, wkt, powierzchnia, glebokosc, opis in lowiska_data:
+                # Sprawdź czy łowisko już istnieje
+                result = await db.execute(select(Lowisko).where(Lowisko.nazwa == nazwa))
+                if not result.scalar_one_or_none():
+                    # Konwersja WKT na geometrię PostGIS
+                    geom = func.ST_GeomFromText(wkt, 4326)
+                    lowisko = Lowisko(
+                        nazwa=nazwa,
+                        typ=typ,
+                        granice=geom,
+                        powierzchnia_ha=powierzchnia,
+                        glebokosc_max=glebokosc,
+                        opis=opis,
+                        wlasciciel_id=owner.id
+                    )
+                    db.add(lowisko)
+            await db.commit()
+            logger.info("Dodano przykładowe łowiska.")
+        else:
+            logger.warning("Brak użytkownika – nie można dodać łowisk.")
         
         logger.info("Seedowanie zakończone.")
         

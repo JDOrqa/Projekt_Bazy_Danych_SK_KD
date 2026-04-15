@@ -13,6 +13,7 @@ import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import LakesList from './pages/LakesList';
 import LakeDetail from './pages/LakeDetail';
+import LakeEdit from './pages/LakeEdit';
 import NewCatch from './pages/NewCatch';
 import CatchHistory from './pages/CatchHistory';
 import UploadImage from './pages/UploadImage';
@@ -29,6 +30,7 @@ function AppRoutes() {
             <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
             <Route path="/lakes" element={<PrivateRoute><LakesList /></PrivateRoute>} />
             <Route path="/lakes/:id" element={<PrivateRoute><LakeDetail /></PrivateRoute>} />
+            <Route path="/lakes/:id/edit" element={<PrivateRoute><LakeEdit /></PrivateRoute>} />
             <Route path="/new-catch" element={<PrivateRoute><NewCatch /></PrivateRoute>} />
             <Route path="/catches" element={<PrivateRoute><CatchHistory /></PrivateRoute>} />
             <Route path="/upload-image" element={<PrivateRoute><UploadImage /></PrivateRoute>} />
