@@ -17,11 +17,13 @@ class UserCreate(UserBase):
 class UserProfile(UserBase):
     id: int
     status: str
+    roles: list[str] = []
 
     class Config:
         from_attributes = True
 
 class UserUpdate(BaseModel):
+    email: Optional[EmailStr] = None
     imie: Optional[str] = None
     nazwisko: Optional[str] = None
     nr_licencji: Optional[str] = None
