@@ -44,6 +44,7 @@ function Login() {
                     placeholder="Email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
+                    maxLength={255}
                     required
                 />
                 <input
@@ -52,6 +53,7 @@ function Login() {
                     placeholder="Hasło"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
+                    maxLength={128}
                     required
                 />
                 <button type="submit" className="btn btn-primary w-100">Zaloguj</button>

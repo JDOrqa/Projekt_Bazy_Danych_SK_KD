@@ -13,7 +13,6 @@ from models.sesja_polowu import SesjaPolowu
 from models.zlowiona_ryba import ZlowionaRyba
 from models.lowisko import Lowisko
 from models.gatunek import Gatunek
-from models.rola import Rola, UzytkownikRola   # <--- DODANE
 from utils.security import get_password_hash, verify_password
 from services.audit_log import log_audit
 
@@ -33,14 +32,7 @@ async def get_my_profile(
     db: AsyncSession = Depends(get_db)
 ):
     """Pobiera dane zalogowanego użytkownika wraz z jego rolami."""
-    # Pobierz nazwy ról użytkownika
-    result = await db.execute(
-        select(Rola.nazwa)
-        .join(UzytkownikRola, Rola.id == UzytkownikRola.rola_id)
-        .where(UzytkownikRola.uzytkownik_id == current_user.id)
-    )
-    roles = result.scalars().all()
-    
+    roles = await get_user_roles(current_user.id, db)
     return UserProfile(
         id=current_user.id,
         email=current_user.email,
@@ -58,24 +50,13 @@ async def update_my_profile(
     db: AsyncSession = Depends(get_db)
 ):
     """Aktualizacja danych profilu (bez zmiany hasła)."""
-    if update_data.imie:
-        current_user.imie = update_data.imie
-    if update_data.nazwisko:
-        current_user.nazwisko = update_data.nazwisko
-    if update_data.nr_licencji:
-        current_user.nr_licencji = update_data.nr_licencji
+    update_fields = update_data.dict(exclude_none=True)
+    for field_name, value in update_fields.items():
+        setattr(current_user, field_name, value)
     await db.commit()
     await db.refresh(current_user)
-    await log_audit(db, current_user.id, "UZYTKOWNICY", current_user.id, "UPDATE", None, update_data.dict())
-    
-    # Pobierz role (tak samo jak wyżej)
-    result = await db.execute(
-        select(Rola.nazwa)
-        .join(UzytkownikRola, Rola.id == UzytkownikRola.rola_id)
-        .where(UzytkownikRola.uzytkownik_id == current_user.id)
-    )
-    roles = result.scalars().all()
-    
+    await log_audit(db, current_user.id, "UZYTKOWNICY", current_user.id, "UPDATE", None, update_fields)
+    roles = await get_user_roles(current_user.id, db)
     return UserProfile(
         id=current_user.id,
         email=current_user.email,

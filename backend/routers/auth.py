@@ -70,7 +70,7 @@ async def register_user(
         imie=user_data.imie,
         nazwisko=user_data.nazwisko,
         nr_licencji=user_data.nr_licencji,
-        status="nieaktywny"
+        status="aktywny"
     )
     db.add(new_user)
     await db.flush()  # aby uzyskać new_user.id

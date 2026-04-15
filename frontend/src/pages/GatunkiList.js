@@ -56,10 +56,10 @@ function GatunkiList() {
       )}
       {(editMode === 'new') && (
         <form onSubmit={(e) => handleSubmit(e)} className="border p-3 mb-3">
-          <input placeholder="Nazwa polska" className="form-control mb-2" onChange={e => setForm({...form, nazwa_polska: e.target.value})} required />
-          <input placeholder="Nazwa łacińska" className="form-control mb-2" onChange={e => setForm({...form, nazwa_lacina: e.target.value})} required />
-          <input placeholder="URL zdjęcia" className="form-control mb-2" onChange={e => setForm({...form, url_zdjecia: e.target.value})} />
-          <textarea placeholder="Opis" className="form-control mb-2" onChange={e => setForm({...form, opis: e.target.value})} />
+                  <input placeholder="Nazwa polska" className="form-control mb-2" onChange={e => setForm({ ...form, nazwa_polska: e.target.value })} maxLength={255} required />
+                  <input placeholder="Nazwa łacińska" className="form-control mb-2" onChange={e => setForm({ ...form, nazwa_lacina: e.target.value })} maxLength={255} required />
+                  <input placeholder="URL zdjęcia" className="form-control mb-2" onChange={e => setForm({ ...form, url_zdjecia: e.target.value })} maxLength={255} />
+          <textarea placeholder="Opis" className="form-control mb-2" onChange={e => setForm({...form, opis: e.target.value})} maxLength={1000} />
           <button type="submit" className="btn btn-success">Zapisz</button>
           <button type="button" className="btn btn-secondary" onClick={() => setEditMode(null)}>Anuluj</button>
         </form>
@@ -83,10 +83,10 @@ function GatunkiList() {
             </div>
             {editMode === g.id && (
               <form onSubmit={(e) => handleSubmit(e, g.id)} className="mt-2 border p-2">
-                <input value={form.nazwa_polska} onChange={e => setForm({...form, nazwa_polska: e.target.value})} className="form-control mb-1" />
-                <input value={form.nazwa_lacina} onChange={e => setForm({...form, nazwa_lacina: e.target.value})} className="form-control mb-1" />
-                <input value={form.url_zdjecia} onChange={e => setForm({...form, url_zdjecia: e.target.value})} className="form-control mb-1" />
-                <textarea value={form.opis} onChange={e => setForm({...form, opis: e.target.value})} className="form-control mb-1" />
+                <input value={form.nazwa_polska} onChange={e => setForm({...form, nazwa_polska: e.target.value})} className="form-control mb-1" maxLength={255} />
+                <input value={form.nazwa_lacina} onChange={e => setForm({...form, nazwa_lacina: e.target.value})} className="form-control mb-1" maxLength={255} />
+                <input value={form.url_zdjecia} onChange={e => setForm({...form, url_zdjecia: e.target.value})} className="form-control mb-1" maxLength={255} />
+                <textarea value={form.opis} onChange={e => setForm({...form, opis: e.target.value})} className="form-control mb-1" maxLength={1000} />
                 <button type="submit" className="btn btn-success btn-sm">Zapisz</button>
                 <button type="button" className="btn btn-secondary btn-sm" onClick={() => setEditMode(null)}>Anuluj</button>
               </form>

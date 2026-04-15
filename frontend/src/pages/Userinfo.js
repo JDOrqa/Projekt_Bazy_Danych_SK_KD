@@ -112,10 +112,18 @@ const Userinfo = () => {
       showError('Hasła muszą być takie same.');
       return;
     }
-    if (passwordData.new_password.length < 4) {
-      showError('Hasło musi mieć min. 4 znaki.');
-      return;
-    }
+    if (passwordData.new_password.length < 8) {
+  showError('Hasło musi mieć min. 8 znaków.');
+  return;
+}
+if (!/\d/.test(passwordData.new_password)) {
+  showError('Hasło musi zawierać cyfrę.');
+  return;
+}
+if (!/[a-zA-Z]/.test(passwordData.new_password)) {
+  showError('Hasło musi zawierać literę.');
+  return;
+}
 
     try {
       await api.post('/api/users/change-password', passwordData);
@@ -171,19 +179,19 @@ const Userinfo = () => {
               <form onSubmit={saveProfile}>
                 <div className="mb-3">
                   <label className="form-label">Email</label>
-                  <input type="email" name="email" value={formData.email} onChange={handleProfileChange} className="form-control" />
+                  <input type="email" name="email" value={formData.email} onChange={handleProfileChange} className="form-control" maxLength={255} />
                 </div>
                 <div className="mb-3">
                   <label className="form-label">Imię</label>
-                  <input type="text" name="imie" value={formData.imie} onChange={handleProfileChange} className="form-control" />
+                  <input type="text" name="imie" value={formData.imie} onChange={handleProfileChange} className="form-control" maxLength={255} />
                 </div>
                 <div className="mb-3">
                   <label className="form-label">Nazwisko</label>
-                  <input type="text" name="nazwisko" value={formData.nazwisko} onChange={handleProfileChange} className="form-control" />
+                  <input type="text" name="nazwisko" value={formData.nazwisko} onChange={handleProfileChange} className="form-control" maxLength={255} />
                 </div>
                 <div className="mb-3">
                   <label className="form-label">Numer licencji</label>
-                  <input type="text" name="nr_licencji" value={formData.nr_licencji} onChange={handleProfileChange} className="form-control" />
+                  <input type="text" name="nr_licencji" value={formData.nr_licencji} onChange={handleProfileChange} className="form-control" maxLength={255} />
                 </div>
                 <div className="d-flex gap-2">
                   <button type="submit" className="btn btn-success">Zapisz</button>
@@ -202,15 +210,15 @@ const Userinfo = () => {
             <form onSubmit={changePassword}>
               <div className="mb-3">
                 <label className="form-label">Stare hasło</label>
-                <input type="password" name="old_password" value={passwordData.old_password} onChange={handlePasswordChange} className="form-control" />
+                              <input type="password" name="old_password" value={passwordData.old_password} onChange={handlePasswordChange} className="form-control" maxLength={128} />
               </div>
               <div className="mb-3">
                 <label className="form-label">Nowe hasło</label>
-                <input type="password" name="new_password" value={passwordData.new_password} onChange={handlePasswordChange} className="form-control" />
+                              <input type="password" name="new_password" value={passwordData.new_password} onChange={handlePasswordChange} className="form-control" maxLength={128} />
               </div>
               <div className="mb-3">
                 <label className="form-label">Potwierdź nowe hasło</label>
-                <input type="password" name="confirm_password" value={passwordData.confirm_password} onChange={handlePasswordChange} className="form-control" />
+                              <input type="password" name="confirm_password" value={passwordData.confirm_password} onChange={handlePasswordChange} className="form-control" maxLength={128} />
               </div>
               <button type="submit" className="btn btn-warning">Zmień hasło</button>
             </form>

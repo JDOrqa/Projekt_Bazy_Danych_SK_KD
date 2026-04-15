@@ -17,17 +17,32 @@ function Register() {
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
-    setMessage('');
-    try {
-      await axios.post(`${process.env.REACT_APP_API_URL}/api/auth/register`, form);
-      setMessage('Rejestracja udana. Sprawdź email w celu aktywacji konta.');
-      setTimeout(() => navigate('/login'), 3000);
-    } catch (err) {
-      setError(err.response?.data?.detail || 'Błąd rejestracji');
-    }
-  };
+  e.preventDefault();
+  setError('');
+  setMessage('');
+
+  // Walidacja hasła
+  if (form.password.length < 8) {
+    setError('Hasło musi mieć co najmniej 8 znaków.');
+    return;
+  }
+  if (!/\d/.test(form.password)) {
+    setError('Hasło musi zawierać co najmniej jedną cyfrę.');
+    return;
+  }
+  if (!/[a-zA-Z]/.test(form.password)) {
+    setError('Hasło musi zawierać co najmniej jedną literę.');
+    return;
+  }
+
+  try {
+    await axios.post(`${process.env.REACT_APP_API_URL}/api/auth/register`, form);
+    setMessage('Rejestracja udana. Sprawdź email w celu aktywacji konta.');
+    setTimeout(() => navigate('/login'), 3000);
+  } catch (err) {
+    setError(err.response?.data?.detail || 'Błąd rejestracji');
+  }
+};
 
   return (
     <div className="container mt-5">
@@ -35,11 +50,11 @@ function Register() {
       {message && <div className="alert alert-success">{message}</div>}
       {error && <div className="alert alert-danger">{error}</div>}
       <form onSubmit={handleSubmit}>
-        <input name="email" type="email" placeholder="Email" className="form-control mb-2" onChange={handleChange} required />
-        <input name="password" type="password" placeholder="Hasło (min 8 znaków)" className="form-control mb-2" onChange={handleChange} required />
-        <input name="imie" placeholder="Imię" className="form-control mb-2" onChange={handleChange} required />
-        <input name="nazwisko" placeholder="Nazwisko" className="form-control mb-2" onChange={handleChange} required />
-        <input name="nr_licencji" placeholder="Numer licencji" className="form-control mb-2" onChange={handleChange} />
+              <input name="email" type="email" placeholder="Email" className="form-control mb-2" onChange={handleChange} maxLength={255} required />
+        <input name="password" type="password" placeholder="Hasło (min 8 znaków)" className="form-control mb-2" onChange={handleChange} maxLength={128} required />
+        <input name="imie" placeholder="Imię" className="form-control mb-2" onChange={handleChange} maxLength={255} required />
+        <input name="nazwisko" placeholder="Nazwisko" className="form-control mb-2" onChange={handleChange} maxLength={255} required />
+        <input name="nr_licencji" placeholder="Numer licencji" className="form-control mb-2" onChange={handleChange} maxLength={255} />
         <button type="submit" className="btn btn-primary">Zarejestruj</button>
       </form>
     </div>
