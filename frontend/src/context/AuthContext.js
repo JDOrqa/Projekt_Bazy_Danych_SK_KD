@@ -10,9 +10,13 @@ export const AuthProvider = ({ children }) => {
     const [accessToken, setAccessToken] = useState(localStorage.getItem('access_token'));
     const [refreshToken, setRefreshToken] = useState(localStorage.getItem('refresh_token'));
     const [user, setUser] = useState(null);
+    const [loading, setLoading] = useState(true);
 
     const fetchUser = useCallback(async (token) => {
-        if (!token) return;
+        if (!token) {
+            setLoading(false);
+            return;
+        }
         try {
             const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/users/me`, {
                 headers: { Authorization: `Bearer ${token}` }
@@ -20,6 +24,8 @@ export const AuthProvider = ({ children }) => {
             setUser(res.data);
         } catch (err) {
             console.error('Błąd pobierania profilu', err);
+        } finally {
+            setLoading(false);
         }
     }, []);
 
@@ -50,10 +56,12 @@ export const AuthProvider = ({ children }) => {
             return () => clearInterval(interval);
         } else {
             delete axios.defaults.headers.common['Authorization'];
+            setLoading(false);
         }
     }, [accessToken, fetchUser, refreshAccessToken]);
 
     const login = useCallback((access, refresh) => {
+        setLoading(true);
         setAccessToken(access);
         setRefreshToken(refresh);
         localStorage.setItem('access_token', access);
@@ -77,8 +85,8 @@ export const AuthProvider = ({ children }) => {
     }, []);
 
     const authValue = useMemo(
-        () => ({ accessToken, refreshToken, user, login, logout, refreshUser }),
-        [accessToken, refreshToken, user, login, logout, refreshUser]
+        () => ({ accessToken, refreshToken, user, loading, login, logout, refreshUser }),
+        [accessToken, refreshToken, user, loading, login, logout, refreshUser]
     );
 
     return (
