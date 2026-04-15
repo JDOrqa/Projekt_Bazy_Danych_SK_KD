@@ -7,7 +7,7 @@
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, delete
+from sqlalchemy import select, delete, func
 from database import get_db
 from schemas.user import UserAdminUpdate, UserResponse
 from schemas.role import RoleCreate, RoleResponse, RoleUpdate
