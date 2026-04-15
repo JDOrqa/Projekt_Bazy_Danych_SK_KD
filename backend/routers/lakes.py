@@ -5,7 +5,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from geoalchemy2.shape import from_shape
+from geoalchemy2.shape import from_shape, to_shape
 from shapely.geometry import Polygon
 from database import get_db
 from schemas.lowisko import LowiskoCreate, LowiskoResponse, LowiskoUpdate
@@ -27,6 +27,17 @@ async def is_owner_or_admin(user: Uzytkownik, db: AsyncSession) -> bool:
     )
     roles = result.scalars().all()
     return len(roles) > 0
+
+def geometry_to_coords(geometry):
+    # Konwertuje geometrię PostGIS (WKBElement) na listę punktów [(lon, lat), ...].
+    if geometry is None:
+        return []
+    shape = to_shape(geometry)
+    if shape.geom_type == 'Polygon':
+        # Zewnętrzny pierścień wielokąta
+        coords = list(shape.exterior.coords)
+        return [(x, y) for x, y in coords]
+    return []
 
 @router.post("/", response_model=LowiskoResponse, status_code=status.HTTP_201_CREATED)
 async def create_lake(
@@ -75,10 +86,26 @@ async def create_lake(
 # GET /lakes – publiczne (bez autoryzacji)
 @router.get("/", response_model=list[LowiskoResponse])
 async def list_lakes(skip: int = 0, limit: int = 100, db: AsyncSession = Depends(get_db)):
-    #Lista wszystkich aktywnych łowisk (publiczna)
+    """Lista wszystkich aktywnych łowisk (publiczna)."""
     result = await db.execute(
         select(Lowisko).where(Lowisko.deleted_at.is_(None)).offset(skip).limit(limit)
     )
-    return result.scalars().all()
+    lakes = result.scalars().all()
+    response = []
+    for lake in lakes:
+        lake_dict = {
+            "id": lake.id,
+            "nazwa": lake.nazwa,
+            "typ": lake.typ,
+            "granice": geometry_to_coords(lake.granice),
+            "powierzchnia_ha": lake.powierzchnia_ha,
+            "glebokosc_max": lake.glebokosc_max,
+            "opis": lake.opis,
+            "wlasciciel_id": lake.wlasciciel_id,
+            "created_at": lake.created_at,
+            "updated_at": lake.updated_at,
+        }
+        response.append(LowiskoResponse(**lake_dict))
+    return response
 
 # PUT, DELETE podobnie z wymogiem is_owner_or_admin oraz sprawdzeniem czy właściciel
