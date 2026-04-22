@@ -8,7 +8,7 @@ import { useAuth } from '../context/AuthContext';
 
 function PrivateRoute({ children }) {
   const { accessToken } = useAuth();
-  return accessToken ? children : <Navigate to="/login" />;
+    return accessToken ? children : <Navigate to="/login" />; //jeśli accessToken istnieje zwróć children
 }
 
 export default PrivateRoute;

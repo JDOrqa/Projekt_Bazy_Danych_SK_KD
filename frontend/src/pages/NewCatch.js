@@ -94,7 +94,7 @@ function NewCatch() {
 
     const handleDeleteRyba = async (rybaId) => {
         try {
-            await axios.delete(`${API}/api/catches/sesje/${sesja.id}/ryby/${rybaId}`, { headers: authHeaders });
+            await axios.delete(`${API}/api/catches/ryby/${rybaId}`, { headers: authHeaders });
             setRyby(prev => prev.filter(r => r.id !== rybaId));
         } catch {
             alert('Błąd usuwania ryby.');
@@ -246,8 +246,9 @@ function NewCatch() {
                                     <label className="form-label">Waga (g)</label>
                                     <input
                                         type="number"
-                                        min="1"
+                                        min="1"                                   
                                         className="form-control"
+                                        required
                                         value={rybForm.waga_g}
                                         onChange={e => setRybForm(f => ({ ...f, waga_g: e.target.value }))}
                                     />
@@ -257,8 +258,9 @@ function NewCatch() {
                                     <input
                                         type="number"
                                         step="0.1"
-                                        min="0"
+                                        min="0.1"
                                         className="form-control"
+                                        required
                                         value={rybForm.dlugosc_cm}
                                         onChange={e => setRybForm(f => ({ ...f, dlugosc_cm: e.target.value }))}
                                     />

@@ -139,6 +139,7 @@ function LakeEdit() {
                                 name="nazwa"
                                 value={formData.nazwa}
                                 onChange={handleInputChange}
+                                maxLength={255}
                                 required
                             />
                         </div>
@@ -165,6 +166,7 @@ function LakeEdit() {
                                 name="powierzchnia_ha"
                                 value={formData.powierzchnia_ha}
                                 onChange={handleInputChange}
+                                required
                             />
                         </div>
 
@@ -178,6 +180,7 @@ function LakeEdit() {
                                 name="glebokosc_max"
                                 value={formData.glebokosc_max}
                                 onChange={handleInputChange}
+                                required
                             />
                         </div>
 
@@ -190,6 +193,7 @@ function LakeEdit() {
                                 name="opis"
                                 value={formData.opis}
                                 onChange={handleInputChange}
+                                maxLength={1000}
                             ></textarea>
                         </div>
 

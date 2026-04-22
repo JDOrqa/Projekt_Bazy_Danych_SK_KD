@@ -131,11 +131,56 @@ async def end_session(
     await db.refresh(sesja)
     return format_sesja_response(sesja)
 
+# historia sesji, z opcją filtrowania tylko aktywnych, paginacją limit/offset i sortowaniem najnowsze pierwsze
+@router.get("/sesje", response_model=List[SesjaResponse])#
+async def list_sessions(
+    aktywna_only: bool = False,
+    limit: int = 50,
+    offset: int = 0,
+    current_user: Uzytkownik = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    q = select(SesjaPolowu).where(SesjaPolowu.uzytkownik_id == current_user.id)
+    if aktywna_only:
+        q = q.where(SesjaPolowu.data_zakonczenia.is_(None))
+    q = q.order_by(SesjaPolowu.data_rozpoczecia.desc()).offset(offset).limit(limit)
+    result = await db.execute(q)
+    return [format_sesja_response(s) for s in result.scalars().all()]
 
 
 
+@router.get("/sesje/{sesja_id}", response_model=SesjaDetailResponse) #dodanie szczegółów sesji, czyli listy złowionych ryb wraz z nazwami gatunku, metody i przynęty, oraz nazwy łowiska i użytkownika
+async def get_session_details(
+    sesja_id: int,
+    current_user: Uzytkownik = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    sesja = await db.get(SesjaPolowu, sesja_id)
+    if not sesja or sesja.uzytkownik_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Sesja nie istnieje lub nie należy do Ciebie")
 
-@router.get("/sesje/aktywna", response_model=SesjaResponse)
+    ryby_result = await db.execute(
+        select(ZlowionaRyba).where(ZlowionaRyba.sesja_id == sesja_id)
+    )
+    ryby = ryby_result.scalars().all()
+
+    ryby_responses = []
+    for r in ryby:
+        g = await db.get(Gatunek, r.gatunek_id) if r.gatunek_id else None
+        m = await db.get(MetodaPolowu, r.metoda_id) if r.metoda_id else None
+        p = await db.get(Przyneta, r.przyneta_id) if r.przyneta_id else None
+        ryby_responses.append(format_ryba_response(r, g, m, p).dict())
+
+    lowisko = await db.get(Lowisko, sesja.lowisko_id)
+
+    response_data = format_sesja_response(sesja).dict()
+    response_data["zlowione_ryby"] = ryby_responses
+    response_data["nazwa_lowiska"] = lowisko.nazwa if lowisko else None
+    response_data["nazwa_uzytkownika"] = current_user.email
+    return SesjaDetailResponse(**response_data)
+
+
+@router.get("/sesje/aktywna", response_model=SesjaResponse) #dodanie endpointu do pobierania aktualnie aktywnej sesji, jeśli istnieje, wraz z odpowiednim sprawdzeniem i formatowaniem odpowiedzi
 async def get_active_session(
     current_user: Uzytkownik = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)

@@ -18,6 +18,5 @@ from .pomiar_ryby import PomiarRyby
 from .limit_polowowy import LimitPolowowy
 from .zarybienie import Zarybienie
 from .historia_wizyt import HistoriaWizyt
-from .wizyty_agregat import WizytyAgregat
 from .log_audytu import LogAudytu
 from .kolejka_przetwarzania import KolejkaPrzetwarzania

@@ -6,12 +6,11 @@ import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 
 function GatunkiList() {
-    const [gatunki, setGatunki] = useState([]);
-    const [editMode, setEditMode] = useState(null);
-    const [form, setForm] = useState({ nazwa_polska: '', nazwa_lacina: '', url_zdjecia: '', opis: '' });
+    const [gatunki, setGatunki] = useState([]); // Przechowuje listę gatunków w stanie
+    const [editMode, setEditMode] = useState(null); // Przechowuje ID gatunku, który jest aktualnie edytowany. Jeśli null, to żaden gatunek nie jest w trybie edycji. Jeśli 'new', to dodajemy nowy gatunek.
+    const [form, setForm] = useState({ nazwa_polska: '', nazwa_lacina: '', url_zdjecia: '', opis: '' }); 
     const { accessToken, user } = useAuth();
-    const canEdit = user?.roles?.some(r => ['Admin', 'Moderator'].includes(r));
-
+    const canEdit = user?.roles?.some(r => ['Admin', 'Moderator'].includes(r)); 
     const fetchGatunki = useCallback(async () => {
         const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/admin/gatunki`, {
             headers: { Authorization: `Bearer ${accessToken}` }
@@ -26,12 +25,12 @@ function GatunkiList() {
   const handleSubmit = async (e, id = null) => {
     e.preventDefault();
     if (id) {
-      await axios.put(`${process.env.REACT_APP_API_URL}/api/admin/gatunki/${id}`, form, {
+        await axios.put(`${process.env.REACT_APP_API_URL}/api/admin/gatunki/${id}`, form, { // Jeśli id jest podane, to aktualizujemy istniejący gatunek axios.put, w przeciwnym razie tworzymy nowy axios.post
         headers: { Authorization: `Bearer ${accessToken}` }
       });
     } else {
-      await axios.post(`${process.env.REACT_APP_API_URL}/api/admin/gatunki`, form, {
-        headers: { Authorization: `Bearer ${accessToken}` }
+      await axios.post(`${process.env.REACT_APP_API_URL}/api/admin/gatunki`, form, {   
+        headers: { Authorization: `Bearer ${accessToken}` }  
       });
     }
     setEditMode(null);
@@ -56,10 +55,10 @@ function GatunkiList() {
       )}
       {(editMode === 'new') && (
         <form onSubmit={(e) => handleSubmit(e)} className="border p-3 mb-3">
-          <input placeholder="Nazwa polska" className="form-control mb-2" onChange={e => setForm({...form, nazwa_polska: e.target.value})} required />
-          <input placeholder="Nazwa łacińska" className="form-control mb-2" onChange={e => setForm({...form, nazwa_lacina: e.target.value})} required />
-          <input placeholder="URL zdjęcia" className="form-control mb-2" onChange={e => setForm({...form, url_zdjecia: e.target.value})} />
-          <textarea placeholder="Opis" className="form-control mb-2" onChange={e => setForm({...form, opis: e.target.value})} />
+                  <input placeholder="Nazwa polska" className="form-control mb-2" onChange={e => setForm({ ...form, nazwa_polska: e.target.value })} maxLength={255} required />
+                  <input placeholder="Nazwa łacińska" className="form-control mb-2" onChange={e => setForm({ ...form, nazwa_lacina: e.target.value })} maxLength={255} required />
+                  <input placeholder="URL zdjęcia" className="form-control mb-2" onChange={e => setForm({ ...form, url_zdjecia: e.target.value })} maxLength={255} />
+          <textarea placeholder="Opis" className="form-control mb-2" onChange={e => setForm({...form, opis: e.target.value})} maxLength={1000} />
           <button type="submit" className="btn btn-success">Zapisz</button>
           <button type="button" className="btn btn-secondary" onClick={() => setEditMode(null)}>Anuluj</button>
         </form>
@@ -83,10 +82,10 @@ function GatunkiList() {
             </div>
             {editMode === g.id && (
               <form onSubmit={(e) => handleSubmit(e, g.id)} className="mt-2 border p-2">
-                <input value={form.nazwa_polska} onChange={e => setForm({...form, nazwa_polska: e.target.value})} className="form-control mb-1" />
-                <input value={form.nazwa_lacina} onChange={e => setForm({...form, nazwa_lacina: e.target.value})} className="form-control mb-1" />
-                <input value={form.url_zdjecia} onChange={e => setForm({...form, url_zdjecia: e.target.value})} className="form-control mb-1" />
-                <textarea value={form.opis} onChange={e => setForm({...form, opis: e.target.value})} className="form-control mb-1" />
+                <input value={form.nazwa_polska} onChange={e => setForm({...form, nazwa_polska: e.target.value})} className="form-control mb-1" maxLength={255} />
+                <input value={form.nazwa_lacina} onChange={e => setForm({...form, nazwa_lacina: e.target.value})} className="form-control mb-1" maxLength={255} />
+                <input value={form.url_zdjecia} onChange={e => setForm({...form, url_zdjecia: e.target.value})} className="form-control mb-1" maxLength={255} />
+                <textarea value={form.opis} onChange={e => setForm({...form, opis: e.target.value})} className="form-control mb-1" maxLength={1000} />
                 <button type="submit" className="btn btn-success btn-sm">Zapisz</button>
                 <button type="button" className="btn btn-secondary btn-sm" onClick={() => setEditMode(null)}>Anuluj</button>
               </form>
