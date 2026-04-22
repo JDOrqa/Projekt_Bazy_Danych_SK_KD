@@ -1,38 +1,42 @@
-# Plik: schemas/sesja.py
-# Schematy dla sesji połowu (SesjaPolowu).
-# Używane przez: routers/catches.py
-
-from pydantic import BaseModel, Field, validator
-from typing import Optional, List, Tuple
+from pydantic import BaseModel, Field
 from datetime import datetime
+from typing import Optional, List
+from .ryba import ZlowionaRybaResponse
 
-class SesjaBase(BaseModel):
+# --- Request schemas ---
+class SesjaStartRequest(BaseModel):
     lowisko_id: int
-    start_czas: datetime
-    koniec_czas: Optional[datetime] = None
-    start_gps: Optional[Tuple[float, float]] = None  # (lon, lat)
-    koniec_gps: Optional[Tuple[float, float]] = None
-    uwagi: Optional[str] = Field(None, max_length=2000)
-
-    @validator('koniec_czas')
-    def validate_end_time(cls, v, values):
-        if v and 'start_czas' in values and v < values['start_czas']:
-            raise ValueError('Czas zakończenia nie może być wcześniejszy niż start')
-        return v
-
-class SesjaCreate(SesjaBase):
-    pass
-
-class SesjaUpdate(BaseModel):
-    koniec_czas: Optional[datetime] = None
-    koniec_gps: Optional[Tuple[float, float]] = None
+    start_gps_lat: Optional[float] = Field(None, ge=-90, le=90)
+    start_gps_lon: Optional[float] = Field(None, ge=-180, le=180)
     uwagi: Optional[str] = None
 
-class SesjaResponse(SesjaBase):
+class SesjaEndRequest(BaseModel):
+    koniec_gps_lat: Optional[float] = Field(None, ge=-90, le=90)
+    koniec_gps_lon: Optional[float] = Field(None, ge=-180, le=180)
+
+class SesjaUpdateRequest(BaseModel):
+    lowisko_id: Optional[int] = None
+    uwagi: Optional[str] = None
+
+# --- Response schemas ---
+class SesjaResponse(BaseModel):
     id: int
     uzytkownik_id: int
+    lowisko_id: int
+    data_rozpoczecia: datetime
+    data_zakonczenia: Optional[datetime]
+    start_gps_lat: Optional[float]
+    start_gps_lon: Optional[float]
+    koniec_gps_lat: Optional[float]
+    koniec_gps_lon: Optional[float]
+    uwagi: Optional[str]
     created_at: datetime
-    updated_at: datetime
-
+    
     class Config:
         from_attributes = True
+
+class SesjaDetailResponse(SesjaResponse):
+    """Sesja z listą złowionych ryb"""
+    zlowione_ryby: List[ZlowionaRybaResponse] = []
+    nazwa_lowiska: Optional[str] = None
+    nazwa_uzytkownika: Optional[str] = None

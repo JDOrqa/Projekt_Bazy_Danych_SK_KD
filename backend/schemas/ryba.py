@@ -1,36 +1,44 @@
-# Plik: schemas/ryba.py
-# Schematy dla złowionej ryby (ZlowionaRyba).
-# Używane przez: routers/catches.py
-
-from pydantic import BaseModel, Field, validator
-from typing import Optional, Tuple
+from pydantic import BaseModel, Field
 from datetime import datetime
+from typing import Optional
 
-class ZlowionaRybaBase(BaseModel):
-    sesja_id: int
+class ZlowionaRybaCreateRequest(BaseModel):
     gatunek_id: int
+    waga_g: Optional[int] = Field(None, gt=0)
+    dlugosc_cm: Optional[float] = Field(None, gt=0)
     metoda_id: Optional[int] = None
     przyneta_id: Optional[int] = None
-    waga_kg: Optional[float] = Field(None, gt=0, le=500)
-    dlugosc_cm: Optional[float] = Field(None, gt=0, le=300)
-    wypuszczona: bool = True
-    pozycja_gps: Optional[Tuple[float, float]] = None
-    czas_zlowienia: datetime
-    uwagi: Optional[str] = Field(None, max_length=2000)
+    wypuszczona: bool = False
+    zdjecie_url: Optional[str] = None
+    uwagi: Optional[str] = None
 
-    @validator('waga_kg', 'dlugosc_cm')
-    def positive_value(cls, v):
-        if v is not None and v <= 0:
-            raise ValueError('Wartość musi być większa od 0')
-        return v
+class ZlowionaRybaUpdateRequest(BaseModel):
+    gatunek_id: Optional[int] = None
+    waga_g: Optional[int] = Field(None, gt=0)
+    dlugosc_cm: Optional[float] = Field(None, gt=0)
+    metoda_id: Optional[int] = None
+    przyneta_id: Optional[int] = None
+    wypuszczona: Optional[bool] = None
+    zdjecie_url: Optional[str] = None
+    uwagi: Optional[str] = None
 
-class ZlowionaRybaCreate(ZlowionaRybaBase):
-    pass
-
-class ZlowionaRybaResponse(ZlowionaRybaBase):
+class ZlowionaRybaResponse(BaseModel):
     id: int
-    created_at: datetime
-    updated_at: datetime
-
+    sesja_id: int
+    gatunek_id: int
+    waga_g: Optional[int]
+    dlugosc_cm: Optional[float]
+    metoda_id: Optional[int]
+    przyneta_id: Optional[int]
+    wypuszczona: bool
+    zdjecie_url: Optional[str]
+    uwagi: Optional[str]
+    czas_zlowienia: datetime
+    
+    # Rozszerzone pola (dołączane przy JOIN)
+    nazwa_gatunku: Optional[str] = None
+    nazwa_metody: Optional[str] = None
+    nazwa_przynety: Optional[str] = None
+    
     class Config:
         from_attributes = True

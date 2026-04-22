@@ -118,14 +118,14 @@ async def get_dashboard_stats(
     favorite = fav_lake.first()
     # Ostatnie 5 połowów (z gatunkiem, wagą, datą)
     recent = await db.execute(
-        select(ZlowionaRyba, Gatunek.nazwa_polska, SesjaPolowu.start_czas)
+        select(ZlowionaRyba, Gatunek.nazwa_polska, SesjaPolowu.data_rozpoczecia)
         .join(Gatunek, ZlowionaRyba.gatunek_id == Gatunek.id)
         .join(SesjaPolowu, ZlowionaRyba.sesja_id == SesjaPolowu.id)
         .where(SesjaPolowu.uzytkownik_id == current_user.id)
         .order_by(ZlowionaRyba.created_at.desc())
         .limit(5)
     )
-    recent_catches = [{"gatunek": r[1], "waga_kg": r[0].waga_kg, "data": r[2]} for r in recent.all()]
+    recent_catches = [{"gatunek": r[1], "waga_g": r[0].waga_g, "data": r[2]} for r in recent.all()]
     
     return {
         "liczba_sesji": sesje_count.scalar(),
