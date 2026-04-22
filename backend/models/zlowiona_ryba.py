@@ -1,26 +1,30 @@
-# Plik: models/zlowiona_ryba.py
-# Pojedyncza ryba złowiona podczas sesji. Waga, długość, metoda, przynęta.
-# Powiązana ze zdjęciami.
-
-from sqlalchemy import Column, BigInteger, Numeric, Boolean, TIMESTAMP, Text, ForeignKey
-from geoalchemy2 import Geography
+from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, ForeignKey, Text
+from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from database import Base
 
 class ZlowionaRyba(Base):
     __tablename__ = "ZLOWIONE_RYBY"
     
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
-    sesja_id = Column(BigInteger, ForeignKey("SESJE_POLOWU.id"), nullable=False)
-    gatunek_id = Column(BigInteger, ForeignKey("GATUNKI.id"), nullable=False)
-    metoda_id = Column(BigInteger, ForeignKey("METODY_POLOWU.id"))
-    przyneta_id = Column(BigInteger, ForeignKey("PRZYNETY.id"))
-    waga_kg = Column(Numeric(6,2))
-    dlugosc_cm = Column(Numeric(5,1))
-    wypuszczona = Column(Boolean, default=True)
-    pozycja_gps = Column(Geography('POINT', srid=4326))
-    czas_zlowienia = Column(TIMESTAMP, nullable=False)
-    uwagi = Column(Text)
-    created_at = Column(TIMESTAMP, server_default=func.now())
-    updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
-    deleted_at = Column(TIMESTAMP, nullable=True)
+    id = Column(Integer, primary_key=True, index=True)
+    sesja_id = Column(Integer, ForeignKey("SESJE_POLOWU.id", ondelete="CASCADE"), nullable=False)
+    gatunek_id = Column(Integer, ForeignKey("GATUNKI.id"), nullable=False)
+    metoda_id = Column(Integer, ForeignKey("METODY_POLOWU.id"), nullable=True)
+    przyneta_id = Column(Integer, ForeignKey("PRZYNETY.id"), nullable=True)
+    
+    # Dane ryby
+    waga_g = Column(Integer, nullable=True)
+    dlugosc_cm = Column(Float, nullable=True)
+    
+    # Czy ryba została wypuszczona
+    wypuszczona = Column(Boolean, default=False)
+    
+    # Dodatkowe informacje
+    zdjecie_url = Column(String(500), nullable=True)
+    uwagi = Column(Text, nullable=True)
+    
+    # Znacznik czasowy złowienia (opcjonalny - domyślnie teraz)
+    czas_zlowienia = Column(DateTime(timezone=True), server_default=func.now())
+    
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    

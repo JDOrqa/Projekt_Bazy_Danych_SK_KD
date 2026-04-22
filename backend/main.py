@@ -10,7 +10,7 @@ from sqlalchemy import text, select, func
 import logging
 
 from database import engine, AsyncSessionLocal, Base
-from routers import auth, users, lakes, catches, images, iot, limits, admin
+from routers import auth, users, lakes, catches, images, iot, limits, admin, visits
 from models.uzytkownik import Uzytkownik
 from models.rola import Rola, UzytkownikRola            
 from models.uprawnienie import Uprawnienie, RolaUprawnienie
@@ -19,6 +19,7 @@ from models.lowisko import Lowisko
 from models.metoda_polowu import MetodaPolowu
 from models.przyneta import Przyneta
 from utils.security import get_password_hash
+
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -58,6 +59,8 @@ async def seed_database(db: AsyncSession):
             ("admin.roles.assign", "Przypisywanie ról", "admin"),
             ("images.verify", "Weryfikacja zdjęć", "images"),
             ("audit.view", "Przegląd logów", "audit"),
+            ("population.create", "Dodawanie wpisów populacji", "populacja"),
+            ("population.delete", "Usuwanie wpisów populacji", "populacja"),
         ]
         for kod, nazwa, modul in permissions:
             result = await db.execute(select(Uprawnienie).where(Uprawnienie.kod == kod))
@@ -90,7 +93,7 @@ async def seed_database(db: AsyncSession):
                     db.add(RolaUprawnienie(rola_id=admin_role.id, uprawnienie_id=perm.id))
         
         if owner_role:
-            owner_perms = ['lake.create', 'lake.edit', 'lake.delete']
+            owner_perms = ['lake.create', 'lake.edit', 'lake.delete', 'population.create', 'population.delete']
             for kod in owner_perms:
                 perm_result = await db.execute(select(Uprawnienie).where(Uprawnienie.kod == kod))
                 perm = perm_result.scalar_one_or_none()
@@ -271,10 +274,12 @@ app.include_router(auth.router, prefix="/api/auth", tags=["autoryzacja"])
 app.include_router(users.router, prefix="/api/users", tags=["użytkownicy"])
 app.include_router(lakes.router, prefix="/api/lakes", tags=["łowiska"])
 app.include_router(catches.router, prefix="/api/catches", tags=["połowy"])
+app.include_router(visits.router, prefix="/api/visits", tags=["wizyty"])
 app.include_router(images.router, prefix="/api/images", tags=["zdjęcia"])
 app.include_router(iot.router, prefix="/api/iot", tags=["IoT"])
 app.include_router(limits.router, prefix="/api/limits", tags=["limity"])
 app.include_router(admin.router, prefix="/api/admin", tags=["administracja"])
+
 
 @app.get("/")
 async def root():

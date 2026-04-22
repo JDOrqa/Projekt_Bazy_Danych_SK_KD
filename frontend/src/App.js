@@ -20,6 +20,8 @@ import UploadImage from './pages/UploadImage';
 import AdminPanel from './pages/AdminPanel';
 import GatunkiList from './pages/GatunkiList';
 import Userinfo from './pages/Userinfo';  
+import NewVisit from './pages/NewVisit';
+import VisitHistory from './pages/VisitHistory';
 
 
 function AppRoutes() {
@@ -35,6 +37,8 @@ function AppRoutes() {
             <Route path="/lakes/:id/edit" element={<PrivateRoute><LakeEdit /></PrivateRoute>} />
             <Route path="/new-catch" element={<PrivateRoute><NewCatch /></PrivateRoute>} />
             <Route path="/catches" element={<PrivateRoute><CatchHistory /></PrivateRoute>} />
+            <Route path="/new-visit" element={<PrivateRoute><NewVisit /></PrivateRoute>} />
+            <Route path="/visits" element={<PrivateRoute><VisitHistory /></PrivateRoute>} />
             <Route path="/upload-image" element={<PrivateRoute><UploadImage /></PrivateRoute>} />
             <Route path="/admin/*" element={<PrivateRoute><AdminPanel /></PrivateRoute>} />
             <Route path="/gatunki" element={<PrivateRoute><GatunkiList /></PrivateRoute>} />

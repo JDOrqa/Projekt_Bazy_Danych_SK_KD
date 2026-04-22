@@ -18,11 +18,11 @@ function Login() {
         e.preventDefault();
         setError('');
         try {
-            // OAuth2PasswordRequestForm wymaga grant_type=password oraz username/password
-            const params = new URLSearchParams();
-            params.append('username', email);
-            params.append('password', password);
-            const res = await axios.post(`${process.env.REACT_APP_API_URL}/api/auth/login`, params, {
+            
+            const params = new URLSearchParams(); // Tworzymy obiekt URLSearchParams, który automatycznie zakoduje dane w formacie application/x-www-form-urlencoded bo oauth2 tego wymaga
+            params.append('username', email); 
+            params.append('password', password); 
+            const res = await axios.post(`${process.env.REACT_APP_API_URL}/api/auth/login`, params, { 
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
             });
             const { access_token, refresh_token } = res.data;
