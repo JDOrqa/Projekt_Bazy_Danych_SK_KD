@@ -4,10 +4,10 @@ from sqlalchemy.sql import func
 from database import Base
 
 class ZlowionaRyba(Base):
-    __tablename__ = "ZLOWIONE_RYBY"
+    __tablename__ = "zlowione_ryby"
     
     id = Column(Integer, primary_key=True, index=True)
-    sesja_id = Column(Integer, ForeignKey("SESJE_POLOWU.id", ondelete="CASCADE"), nullable=False)
+    sesja_id = Column(Integer, ForeignKey("sesje_polowu.id", ondelete="CASCADE"), nullable=False)
     gatunek_id = Column(Integer, ForeignKey("GATUNKI.id"), nullable=False)
     metoda_id = Column(Integer, ForeignKey("METODY_POLOWU.id"), nullable=True)
     przyneta_id = Column(Integer, ForeignKey("PRZYNETY.id"), nullable=True)

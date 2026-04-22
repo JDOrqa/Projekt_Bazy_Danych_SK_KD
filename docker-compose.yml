@@ -67,11 +67,11 @@ services:
       - backend
     environment:
       - REACT_APP_API_URL=http://localhost:8000
-      - NODE_OPTIONS=--max-old-space-size=256
+      - NODE_OPTIONS=--max-old-space-size=1024
       - WATCHPACK_POLLING=false
       - CHOKIDAR_USEPOLLING=false
     restart: unless-stopped
-    mem_limit: 384m
+    mem_limit: 1536m
     stdin_open: true
     networks:
       - wedkarz_network

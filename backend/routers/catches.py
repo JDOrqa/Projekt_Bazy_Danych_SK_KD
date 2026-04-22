@@ -35,7 +35,7 @@ def gps_point(lat, lon):
     return None
 
 
-def format_sesja_response(sesja: SesjaPolowu) -> SesjaResponse: # konwersja obiektów geometrycznych na lat/lon
+def format_sesja_response(sesja: SesjaPolowu) -> SesjaResponse:
     data = {
         "id": sesja.id,
         "uzytkownik_id": sesja.uzytkownik_id,
@@ -60,7 +60,7 @@ def format_sesja_response(sesja: SesjaPolowu) -> SesjaResponse: # konwersja obie
     return SesjaResponse(**data)
 
 
-def format_ryba_response(ryba: ZlowionaRyba, gatunek=None, metoda=None, przyneta=None) -> ZlowionaRybaResponse: # dodanie nazw gatunku, metody i przynęty do odpowiedzi
+def format_ryba_response(ryba: ZlowionaRyba, gatunek=None, metoda=None, przyneta=None) -> ZlowionaRybaResponse:
     return ZlowionaRybaResponse(
         id=ryba.id,
         sesja_id=ryba.sesja_id,
@@ -81,7 +81,7 @@ def format_ryba_response(ryba: ZlowionaRyba, gatunek=None, metoda=None, przyneta
 
 # ============== SESJE ==============
 
-@router.post("/sesje/start", response_model=SesjaResponse, status_code=status.HTTP_201_CREATED) # dodanie sprawdzenia, czy użytkownik nie ma już aktywnej sesji, oraz konwersja GPS lat/lon na obiekt geometryczny
+@router.post("/sesje/start", response_model=SesjaResponse, status_code=status.HTTP_201_CREATED)
 async def start_session(
     request: SesjaStartRequest,
     current_user: Uzytkownik = Depends(get_current_user),
@@ -112,7 +112,7 @@ async def start_session(
     return format_sesja_response(sesja)
 
 
-@router.post("/sesje/{sesja_id}/end", response_model=SesjaResponse) # dodanie sprawdzenia, czy sesja należy do użytkownika i czy nie jest już zakończona, oraz konwersja GPS lat/lon na obiekt geometryczny
+@router.post("/sesje/{sesja_id}/end", response_model=SesjaResponse)
 async def end_session(
     sesja_id: int,
     request: SesjaEndRequest,
@@ -196,7 +196,11 @@ async def get_active_session(
         raise HTTPException(status_code=404, detail="Brak aktywnej sesji")
     return format_sesja_response(sesja)
 
-@router.patch("/sesje/{sesja_id}", response_model=SesjaResponse) #dodanie możliwości aktualizacji łowiska i uwag do sesji, wraz z odpowiednimi sprawdzeniami i formatowaniem odpowiedzi
+
+
+
+
+@router.patch("/sesje/{sesja_id}", response_model=SesjaResponse)
 async def update_session(
     sesja_id: int,
     request: SesjaUpdateRequest,
@@ -220,7 +224,7 @@ async def update_session(
     return format_sesja_response(sesja)
 
 
-@router.delete("/sesje/{sesja_id}", status_code=status.HTTP_204_NO_CONTENT) #dodanie możliwości usunięcia sesji, wraz z odpowiednimi sprawdzeniami i formatowaniem odpowiedzi, oraz usunięciem wszystkich złowionych ryb powiązanych z tą sesją
+@router.delete("/sesje/{sesja_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_session(
     sesja_id: int,
     current_user: Uzytkownik = Depends(get_current_user),
@@ -235,7 +239,7 @@ async def delete_session(
 
 # ============== ZŁOWIONE RYBY ==============
 
-@router.post("/sesje/{sesja_id}/ryby", response_model=ZlowionaRybaResponse, status_code=status.HTTP_201_CREATED) #dodanie możliwości dodania złowionej ryby do sesji, wraz z odpowiednimi sprawdzeniami i formatowaniem odpowiedzi, oraz sprawdzeniem istnienia gatunku, metody i przynęty, jeśli zostały podane
+@router.post("/sesje/{sesja_id}/ryby", response_model=ZlowionaRybaResponse, status_code=status.HTTP_201_CREATED)
 async def add_fish(
     sesja_id: int,
     request: ZlowionaRybaCreateRequest,
@@ -277,7 +281,7 @@ async def add_fish(
     return format_ryba_response(ryba, gatunek, metoda, przyneta)
 
 
-@router.get("/sesje/{sesja_id}/ryby", response_model=List[ZlowionaRybaResponse]) #dodanie możliwości pobrania listy złowionych ryb dla danej sesji, wraz z odpowiednimi sprawdzeniami i formatowaniem odpowiedzi, oraz dodaniem nazw gatunku, metody i przynęty do odpowiedzi
+@router.get("/sesje/{sesja_id}/ryby", response_model=List[ZlowionaRybaResponse])
 async def list_fish(
     sesja_id: int,
     current_user: Uzytkownik = Depends(get_current_user),
@@ -302,7 +306,7 @@ async def list_fish(
     return responses
 
 
-@router.patch("/ryby/{ryba_id}", response_model=ZlowionaRybaResponse) #dodanie możliwości aktualizacji danych złowionej ryby, wraz z odpowiednimi sprawdzeniami i formatowaniem odpowiedzi, oraz dodaniem nazw gatunku, metody i przynęty do odpowiedzi
+@router.patch("/ryby/{ryba_id}", response_model=ZlowionaRybaResponse)
 async def update_fish(
     ryba_id: int,
     request: ZlowionaRybaUpdateRequest,

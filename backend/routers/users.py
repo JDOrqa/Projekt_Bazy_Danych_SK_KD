@@ -125,7 +125,6 @@ async def get_dashboard_stats(
         .order_by(ZlowionaRyba.created_at.desc())
         .limit(5)
     )
-    # Tworzy listę słowników: gatunek, waga, data (dla każdego wiersza)
     recent_catches = [{"gatunek": r[1], "waga_g": r[0].waga_g, "data": r[2]} for r in recent.all()]
     
     return {  # zwraca obiekt JSON ze statystykami
