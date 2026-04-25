@@ -13,35 +13,27 @@ from models.sesja_polowu import SesjaPolowu
 from models.zlowiona_ryba import ZlowionaRyba
 from models.lowisko import Lowisko
 from models.gatunek import Gatunek
-from models.rola import Rola, UzytkownikRola   # <--- DODANE
 from utils.security import get_password_hash, verify_password
 from services.audit_log import log_audit
 
-router = APIRouter()
+router = APIRouter()  # tworzy instancję routera do grupowania endpointów
 
-async def get_user_roles(user_id: int, db: AsyncSession) -> list[str]:
-    result = await db.execute(
-        select(Rola.nazwa)
-        .join(UzytkownikRola, UzytkownikRola.rola_id == Rola.id)
-        .where(UzytkownikRola.uzytkownik_id == user_id)
+async def get_user_roles(user_id: int, db: AsyncSession) -> list[str]:  # funkcja zwraca listę nazw ról użytkownika
+    result = await db.execute(  # wykonuje zapytanie asynchronicznie
+        select(Rola.nazwa)  # wybiera tylko kolumnę nazwa z tabeli Rola
+        .join(UzytkownikRola, UzytkownikRola.rola_id == Rola.id)  # łączy role z przypisaniami
+        .where(UzytkownikRola.uzytkownik_id == user_id)  # filtruje po id użytkownika
     )
-    return [row[0] for row in result.all()]
+    return [row[0] for row in result.all()]  # zwraca listę samych nazw (pierwszy element każdej krotki)
 
-@router.get("/me", response_model=UserProfile)
+@router.get("/me", response_model=UserProfile)  # GET /api/users/me – zwraca profil zalogowanego
 async def get_my_profile(
-    current_user: Uzytkownik = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    current_user: Uzytkownik = Depends(get_current_user),  # pobiera użytkownika z tokena JWT
+    db: AsyncSession = Depends(get_db)  # wstrzykuje sesję bazy danych
 ):
     """Pobiera dane zalogowanego użytkownika wraz z jego rolami."""
-    # Pobierz nazwy ról użytkownika
-    result = await db.execute(
-        select(Rola.nazwa)
-        .join(UzytkownikRola, Rola.id == UzytkownikRola.rola_id)
-        .where(UzytkownikRola.uzytkownik_id == current_user.id)
-    )
-    roles = result.scalars().all()
-    
-    return UserProfile(
+    roles = await get_user_roles(current_user.id, db)  # pobiera listę ról
+    return UserProfile(  # tworzy obiekt odpowiedzi zgodny ze schematem
         id=current_user.id,
         email=current_user.email,
         imie=current_user.imie,
@@ -51,32 +43,21 @@ async def get_my_profile(
         roles=roles
     )
 
-@router.put("/me", response_model=UserProfile)
+@router.put("/me", response_model=UserProfile)  # PUT /api/users/me – aktualizacja profilu
 async def update_my_profile(
-    update_data: UserUpdate,
+    update_data: UserUpdate,  # dane do aktualizacji (wszystkie opcjonalne)
     current_user: Uzytkownik = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """Aktualizacja danych profilu (bez zmiany hasła)."""
-    if update_data.imie:
-        current_user.imie = update_data.imie
-    if update_data.nazwisko:
-        current_user.nazwisko = update_data.nazwisko
-    if update_data.nr_licencji:
-        current_user.nr_licencji = update_data.nr_licencji
-    await db.commit()
-    await db.refresh(current_user)
-    await log_audit(db, current_user.id, "UZYTKOWNICY", current_user.id, "UPDATE", None, update_data.dict())
-    
-    # Pobierz role (tak samo jak wyżej)
-    result = await db.execute(
-        select(Rola.nazwa)
-        .join(UzytkownikRola, Rola.id == UzytkownikRola.rola_id)
-        .where(UzytkownikRola.uzytkownik_id == current_user.id)
-    )
-    roles = result.scalars().all()
-    
-    return UserProfile(
+    update_fields = update_data.dict(exclude_none=True)  # pomija pola z wartością None
+    for field_name, value in update_fields.items():  # iteruje po przesłanych polach
+        setattr(current_user, field_name, value)  # dynamicznie ustawia atrybut obiektu
+    await db.commit()  # zatwierdza zmiany w bazie
+    await db.refresh(current_user)  # odświeża obiekt (np. daty aktualizacji)
+    await log_audit(db, current_user.id, "UZYTKOWNICY", current_user.id, "UPDATE", None, update_fields)  # loguje operację
+    roles = await get_user_roles(current_user.id, db)  # ponownie pobiera role (mogły się zmienić)
+    return UserProfile(  # zwraca zaktualizowany profil
         id=current_user.id,
         email=current_user.email,
         imie=current_user.imie,
@@ -86,23 +67,23 @@ async def update_my_profile(
         roles=roles
     )
 
-@router.post("/change-password")
+@router.post("/change-password")  # POST /api/users/change-password – zmiana hasła
 async def change_password(
-    data: ChangePassword,
+    data: ChangePassword,  # stare hasło, nowe, potwierdzenie
     current_user: Uzytkownik = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """Zmiana hasła – wymaga podania starego hasła."""
-    if not verify_password(data.old_password, current_user.haslo_hash):
-        raise HTTPException(status_code=400, detail="Nieprawidłowe stare hasło")
-    if data.new_password != data.confirm_password:
+    if not verify_password(data.old_password, current_user.haslo_hash):  # sprawdza czy stare hasło poprawne
+        raise HTTPException(status_code=400, detail="Nieprawidłowe stare hasło")  # błąd 400
+    if data.new_password != data.confirm_password:  # sprawdza czy nowe i potwierdzenie są identyczne
         raise HTTPException(status_code=400, detail="Nowe hasła nie są identyczne")
-    current_user.haslo_hash = get_password_hash(data.new_password)
-    await db.commit()
-    await log_audit(db, current_user.id, "UZYTKOWNICY", current_user.id, "UPDATE_PASSWORD", None, None)
-    return {"message": "Hasło zmienione"}
+    current_user.haslo_hash = get_password_hash(data.new_password)  # hashuje nowe hasło i zapisuje
+    await db.commit()  # zatwierdza zmianę
+    await log_audit(db, current_user.id, "UZYTKOWNICY", current_user.id, "UPDATE_PASSWORD", None, None)  # loguje
+    return {"message": "Hasło zmienione"}  # zwraca komunikat sukcesu
 
-@router.get("/dashboard")
+@router.get("/dashboard")  # GET /api/users/dashboard – statystyki użytkownika
 async def get_dashboard_stats(
     current_user: Uzytkownik = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
@@ -117,15 +98,15 @@ async def get_dashboard_stats(
     # Liczba sesji
     sesje_count = await db.execute(
         select(func.count()).select_from(SesjaPolowu).where(SesjaPolowu.uzytkownik_id == current_user.id)
-    )
-    # Liczba ryb
+    )  # SELECT COUNT(*) FROM SESJA_POLOWU WHERE uzytkownik_id = ?
+    # Liczba ryb (złączenie z sesjami, żeby policzyć tylko ryby użytkownika)
     ryby_count = await db.execute(
         select(func.count())
         .select_from(ZlowionaRyba)
         .join(SesjaPolowu)
         .where(SesjaPolowu.uzytkownik_id == current_user.id)
-    )
-    # Ulubione łowisko – najwięcej sesji
+    )  # SELECT COUNT(*) FROM ZLOWIONA_RYBA JOIN SESJA_POLOWU ...
+    # Ulubione łowisko – najwięcej sesji (grupowanie po łowisku, zliczanie sesji, sortowanie malejąco, pierwszy)
     fav_lake = await db.execute(
         select(Lowisko.nazwa, func.count(SesjaPolowu.id))
         .join(SesjaPolowu, Lowisko.id == SesjaPolowu.lowisko_id)
@@ -134,8 +115,8 @@ async def get_dashboard_stats(
         .order_by(func.count().desc())
         .limit(1)
     )
-    favorite = fav_lake.first()
-    # Ostatnie 5 połowów (z gatunkiem, wagą, datą)
+    favorite = fav_lake.first()  # pobiera pierwszy wiersz (może być None)
+    # Ostatnie 5 połowów – złączenie: złowiona ryba -> gatunek (nazwa) i sesja (data)
     recent = await db.execute(
         select(ZlowionaRyba, Gatunek.nazwa_polska, SesjaPolowu.data_rozpoczecia)
         .join(Gatunek, ZlowionaRyba.gatunek_id == Gatunek.id)
@@ -146,9 +127,9 @@ async def get_dashboard_stats(
     )
     recent_catches = [{"gatunek": r[1], "waga_g": r[0].waga_g, "data": r[2]} for r in recent.all()]
     
-    return {
-        "liczba_sesji": sesje_count.scalar(),
+    return {  # zwraca obiekt JSON ze statystykami
+        "liczba_sesji": sesje_count.scalar(),  # pierwsza wartość z zapytania
         "liczba_zlowionych_ryb": ryby_count.scalar(),
-        "ulubione_lowisko": favorite[0] if favorite else None,
+        "ulubione_lowisko": favorite[0] if favorite else None,  # nazwa łowiska lub None
         "ostatnie_polowy": recent_catches
     }

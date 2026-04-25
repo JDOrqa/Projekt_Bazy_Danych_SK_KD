@@ -12,10 +12,10 @@ from models.uzytkownik import Uzytkownik
 from models.rola import Rola, UzytkownikRola
 from typing import Optional, Dict
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto") #bycrypt do hashowania 
 
-# Prosta pamięć podręczna refresh tokenów (w produkcji użyć Redis lub tabeli)
-refresh_tokens_store: Dict[int, str] = {}
+
+refresh_tokens_store: Dict[int, str] = {} # Prosty słownik do przechowywania refresh tokenów (user_id: token)
 
 def get_password_hash(password: str) -> str:
     """Hashuje hasło przy użyciu bcrypt (max 72 bajty)"""
@@ -29,29 +29,29 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     password_truncated = plain_password[:72] if len(plain_password) > 72 else plain_password
     return pwd_context.verify(password_truncated, hashed_password)
 
-def create_access_token(data: dict, expires_delta: timedelta = None) -> str:
+def create_access_token(data: dict, expires_delta: timedelta = None) -> str: # data to słownik z danymi, które chcemy zakodować w tokenie (np. user_id), expires_delta to opcjonalny czas ważności tokena
     """Tworzy JWT access token (krótkotrwały)"""
-    to_encode = data.copy()
+    to_encode = data.copy() # tworzymy kopię danych, które chcemy zakodować w tokenie
     if expires_delta:
-        expire = datetime.utcnow() + expires_delta
+        expire = datetime.utcnow() + expires_delta # jeśli expires_delta jest podany, ustawiamy czas wygaśnięcia na aktualny czas + expires_delta
     else:
-        expire = datetime.utcnow() + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-    to_encode.update({"exp": expire, "type": "access"})
-    encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+        expire = datetime.utcnow() + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)    # jeśli expires_delta nie jest podany, ustawiamy czas wygaśnięcia na ACCESS_TOKEN_EXPIRE_MINUTES z ustawień
+    to_encode.update({"exp": expire, "type": "access"}) # dodajemy do danych pole exp z czasem wygaśnięcia tokena oraz pole type z wartością "access", aby odróżnić tokeny dostępu od refresh tokenów
+    encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM) # tworzymy JWT, który zawiera dane z to_encode, podpisany kluczem SECRET_KEY i algorytmem określonym w settings.ALGORITHM
     return encoded_jwt
 
-def create_refresh_token(data: dict) -> str:
+def create_refresh_token(data: dict) -> str: # data to słownik z danymi, które chcemy zakodować w tokenie (np. user_id)
     """Tworzy JWT refresh token (dłuższy czas życia)"""
-    to_encode = data.copy()
-    expire = datetime.utcnow() + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
-    to_encode.update({"exp": expire, "type": "refresh"})
-    encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+    to_encode = data.copy() # tworzymy kopię danych, które chcemy zakodować w tokenie
+    expire = datetime.utcnow() + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS) # ustawiamy czas wygaśnięcia na REFRESH_TOKEN_EXPIRE_DAYS z ustawień (np. 7 dni) 
+    to_encode.update({"exp": expire, "type": "refresh"}) # dodajemy do danych pole exp z czasem wygaśnięcia tokena oraz pole type z wartością "refresh", aby odróżnić tokeny dostępu od refresh tokenów
+    encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM) # tworzymy JWT, który zawiera dane z to_encode, podpisany kluczem SECRET_KEY i algorytmem określonym w settings.ALGORITHM
     return encoded_jwt
 
 def decode_token(token: str) -> dict:
-    """Dekoduje JWT i zwraca payload. W przypadku błędu zwraca None"""
+    """Dekoduje JWT i zwraca payload(dane zapisane w tokenie). W przypadku błędu zwraca None"""
     try:
-        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]) # 
         return payload
     except JWTError:
         return None

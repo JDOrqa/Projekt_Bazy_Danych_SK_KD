@@ -48,11 +48,28 @@ function LakesList() {
             {canCreate && <button className="btn btn-primary mb-3" onClick={() => setShowForm(!showForm)}>Dodaj łowisko</button>}
             {showForm && (
                 <form onSubmit={handleSubmit} className="mb-4 border p-3">
-                    <input placeholder="Nazwa" className="form-control mb-2" onChange={e => setNewLake({ ...newLake, nazwa: e.target.value })} required />
-                    <input placeholder="Typ" className="form-control mb-2" onChange={e => setNewLake({ ...newLake, typ: e.target.value })} />
+                    <input
+                        placeholder="Nazwa"
+                        className="form-control mb-2"
+                        value={newLake.nazwa}
+                        onChange={e => setNewLake({ ...newLake, nazwa: e.target.value })}
+                        maxLength={255}
+                        required
+                    />
+                    <select
+                        className="form-select mb-2"
+                        value={newLake.typ}
+                        onChange={e => setNewLake({ ...newLake, typ: e.target.value })}
+                    >
+                        <option value="">-- Wybierz typ --</option>
+                        <option value="jezioro">Jezioro</option>
+                        <option value="rzeka">Rzeka</option>
+                        <option value="staw">Staw</option>
+                        <option value="zalew">Zalew</option>
+                    </select>
                     <input type="number" placeholder="Powierzchnia (ha)" className="form-control mb-2" onChange={e => setNewLake({ ...newLake, powierzchnia_ha: parseFloat(e.target.value) })} />
                     <input type="number" placeholder="Głębokość max (m)" className="form-control mb-2" onChange={e => setNewLake({ ...newLake, glebokosc_max: parseFloat(e.target.value) })} />
-                    <textarea placeholder="Opis" className="form-control mb-2" onChange={e => setNewLake({ ...newLake, opis: e.target.value })} />
+                    <textarea placeholder="Opis" className="form-control mb-2" onChange={e => setNewLake({ ...newLake, opis: e.target.value })} maxLength={1000} />
                     <MapComponent
                         initialPolygonCoords={newLake.granice}
                         readonly={false}

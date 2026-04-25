@@ -1,4 +1,5 @@
 # Plik: schemas/gatunek.py
+# Schematy dla gatunków ryb. Używane przez: routers/admin.py
 from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime
@@ -24,4 +25,4 @@ class GatunekResponse(GatunekBase):
     updated_at: datetime
 
     class Config:
-        from_attributes = True
+        from_attributes = True # pozwala na tworzenie obiektu z atrybutów modelu (np. z SQLAlchemy)

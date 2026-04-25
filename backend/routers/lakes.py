@@ -85,7 +85,7 @@ async def create_lake(
         "id": new_lake.id,
         "nazwa": new_lake.nazwa,
         "typ": new_lake.typ,
-        "granice": geometry_to_coords(new_lake.granice),  # <-- DODANA KONWERSJA
+        "granice": geometry_to_coords(new_lake.granice),  #  KONWERSJA
         "powierzchnia_ha": new_lake.powierzchnia_ha,
         "glebokosc_max": new_lake.glebokosc_max,
         "opis": new_lake.opis,
@@ -138,7 +138,7 @@ async def get_lake(lake_id: int, db: AsyncSession = Depends(get_db)):
         "created_at": lake.created_at,
         "updated_at": lake.updated_at,
     }
-    return LowiskoResponse(**lake_dict)
+    return LowiskoResponse(**lake_dict) # Konwersja geometrii na listę współrzędnych przed zwróceniem odpowiedzi
 
 @router.delete("/{lake_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_lake(
@@ -192,7 +192,7 @@ async def update_lake(
     if lake_data.granice is not None:
         try:
             polygon = Polygon(lake_data.granice)
-            lake.granice = from_shape(polygon, srid=4326)
+            lake.granice = from_shape(polygon, srid=4326) # Konwersja listy współrzędnych na geometrię PostGIS (Polygon) sr id 4326 to standardowy układ współrzędnych geograficznych (WGS 84)
         except Exception as e:
             raise HTTPException(status_code=400, detail=f"Nieprawidłowa geometria: {str(e)}")
     
@@ -214,5 +214,3 @@ async def update_lake(
         "updated_at": lake.updated_at,
     }
     return LowiskoResponse(**lake_dict)
-
-# PUT, DELETE podobnie z wymogiem is_owner_or_admin oraz sprawdzeniem czy właściciel

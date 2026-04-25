@@ -16,4 +16,7 @@ class Gatunek(Base):
     opis = Column(Text)
     created_at = Column(TIMESTAMP, server_default=func.now())
     updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
-    deleted_at = Column(TIMESTAMP, nullable=True)
+    deleted_at = Column(TIMESTAMP, nullable=True) 
+   
+   #Modele  to klasy SQLAlchemy, które odwzorowują tabele w bazie danych.
+   #Schematy to klasy Pydantic, które definiują kształt danych przychodzących w żądaniu (request) lub wychodzących w odpowiedzi (response) API.
