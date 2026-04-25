@@ -79,6 +79,26 @@ def format_ryba_response(ryba: ZlowionaRyba, gatunek=None, metoda=None, przyneta
     )
 
 
+# ============== SŁOWNIKI ==============
+
+@router.get("/metody")
+async def list_metody(
+    db: AsyncSession = Depends(get_db),
+    current_user: Uzytkownik = Depends(get_current_user)
+):
+    result = await db.execute(select(MetodaPolowu).order_by(MetodaPolowu.nazwa))
+    return [{"id": m.id, "nazwa": m.nazwa} for m in result.scalars().all()]
+
+
+@router.get("/przynety")
+async def list_przynety(
+    db: AsyncSession = Depends(get_db),
+    current_user: Uzytkownik = Depends(get_current_user)
+):
+    result = await db.execute(select(Przyneta).order_by(Przyneta.nazwa))
+    return [{"id": p.id, "nazwa": p.nazwa} for p in result.scalars().all()]
+
+
 # ============== SESJE ==============
 
 @router.post("/sesje/start", response_model=SesjaResponse, status_code=status.HTTP_201_CREATED)
