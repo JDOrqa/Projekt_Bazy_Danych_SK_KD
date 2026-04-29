@@ -10,7 +10,7 @@ from sqlalchemy import text, select, func
 import logging
 
 from database import engine, AsyncSessionLocal, Base
-from routers import auth, users, lakes, catches, images, iot, limits, admin, visits
+from routers import auth, users, lakes, catches, images, iot, limits, admin
 from models.uzytkownik import Uzytkownik
 from models.rola import Rola, UzytkownikRola            
 from models.uprawnienie import Uprawnienie, RolaUprawnienie
@@ -279,7 +279,6 @@ app.include_router(images.router, prefix="/api/images", tags=["zdjęcia"])
 app.include_router(iot.router, prefix="/api/iot", tags=["IoT"])
 app.include_router(limits.router, prefix="/api/limits", tags=["limity"])
 app.include_router(admin.router, prefix="/api/admin", tags=["administracja"])
-
 
 @app.get("/")
 async def root():

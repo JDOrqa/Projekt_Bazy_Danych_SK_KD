@@ -20,8 +20,6 @@ import UploadImage from './pages/UploadImage';
 import AdminPanel from './pages/AdminPanel';
 import GatunkiList from './pages/GatunkiList';
 import Userinfo from './pages/Userinfo';  
-import NewVisit from './pages/NewVisit';
-import VisitHistory from './pages/VisitHistory';
 
 
 function AppRoutes() {
@@ -43,6 +41,8 @@ function AppRoutes() {
             <Route path="/admin/*" element={<PrivateRoute><AdminPanel /></PrivateRoute>} />
             <Route path="/gatunki" element={<PrivateRoute><GatunkiList /></PrivateRoute>} />
             <Route path="/userinfo" element={<PrivateRoute><Userinfo /></PrivateRoute>} /> 
+            <Route path="/limits" element={<PrivateRoute><LimitsManagement /></PrivateRoute>} />
+            <Route path="/zarybienia" element={<PrivateRoute><ZarybieniePage /></PrivateRoute>} />
             <Route path="*" element={<Navigate to="/dashboard" />} />
         </Routes>
     );

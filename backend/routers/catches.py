@@ -22,6 +22,7 @@ from schemas.ryba import (
     ZlowionaRybaCreateRequest, ZlowionaRybaUpdateRequest,
     ZlowionaRybaResponse
 )
+from services.limits_validator import LimitValidator
 
 from geoalchemy2.shape import from_shape, to_shape
 from shapely.geometry import Point
@@ -70,6 +71,10 @@ def format_ryba_response(ryba: ZlowionaRyba, gatunek=None, metoda=None, przyneta
         metoda_id=ryba.metoda_id,
         przyneta_id=ryba.przyneta_id,
         wypuszczona=ryba.wypuszczona,
+        powod_wypuszczenia=ryba.powod_wypuszczenia,
+        narusza_limit=ryba.narusza_limit,
+        powod_naruszenia=ryba.powod_naruszenia,
+        ostrzezenie_wyswietlone=ryba.ostrzezenie_wyswietlone,
         zdjecie_url=ryba.zdjecie_url,
         uwagi=ryba.uwagi,
         czas_zlowienia=ryba.czas_zlowienia,
@@ -259,13 +264,23 @@ async def delete_session(
 
 # ============== ZŁOWIONE RYBY ==============
 
-@router.post("/sesje/{sesja_id}/ryby", response_model=ZlowionaRybaResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/sesje/{sesja_id}/ryby", status_code=status.HTTP_201_CREATED)
 async def add_fish(
     sesja_id: int,
     request: ZlowionaRybaCreateRequest,
     current_user: Uzytkownik = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
+    """
+    Dodaj złowioną rybę do sesji.
+
+    Logika walidacji:
+    - Jeśli ryba narusza limity (za mała, za duża, chroniona, no-kill, limit dzienny)
+      i użytkownik NIE zaznaczył wypuszczona=True → zwraca HTTP 422 z listą ostrzeżeń.
+      Frontend musi pokazać ostrzeżenia i wymusić zaznaczenie "wypuszczona".
+    - Jeśli użytkownik zaznaczył wypuszczona=True (świadomie) → ryba jest zapisywana
+      z flagą narusza_limit i powodem.
+    """
     sesja = await db.get(SesjaPolowu, sesja_id)
     if not sesja or sesja.uzytkownik_id != current_user.id:
         raise HTTPException(status_code=404, detail="Sesja nie istnieje lub nie należy do Ciebie")
@@ -284,6 +299,35 @@ async def add_fish(
     if request.przyneta_id and not przyneta:
         raise HTTPException(status_code=404, detail="Przynęta nie istnieje")
 
+    # ===== WALIDACJA LIMITÓW =====
+    warnings, wymusi_wypuszczenie = await LimitValidator.validate_catch(
+        db=db,
+        uzytkownik_id=current_user.id,
+        sesja_id=sesja_id,
+        gatunek_id=request.gatunek_id,
+        dlugosc_cm=request.dlugosc_cm,
+        lowisko_id=sesja.lowisko_id,
+    )
+
+    # Jeśli ryba MUSI być wypuszczona, a użytkownik tego nie zaznaczył → odrzuć
+    if wymusi_wypuszczenie and not request.wypuszczona:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "typ": "wymuszenie_wypuszczenia",
+                "wiadomosc": "Ta ryba musi zostać wypuszczona. Zaznacz 'Wypuszczona' aby potwierdzić.",
+                "ostrzezenia": [
+                    {"typ": w.typ_ostrzezenia, "wiadomosc": w.wiadomosc}
+                    for w in warnings
+                ],
+            }
+        )
+
+    # Ustal powód wypuszczenia na podstawie ostrzeżeń
+    powod_wypuszczenia = None
+    if request.wypuszczona and warnings:
+        powod_wypuszczenia = ", ".join(w.typ_ostrzezenia for w in warnings)
+
     ryba = ZlowionaRyba(
         sesja_id=sesja_id,
         gatunek_id=request.gatunek_id,
@@ -292,13 +336,27 @@ async def add_fish(
         metoda_id=request.metoda_id,
         przyneta_id=request.przyneta_id,
         wypuszczona=request.wypuszczona,
+        powod_wypuszczenia=powod_wypuszczenia or request.powod_wypuszczenia,
+        narusza_limit=wymusi_wypuszczenie,
+        powod_naruszenia=", ".join(w.typ_ostrzezenia for w in warnings) if warnings else None,
+        ostrzezenie_wyswietlone=bool(warnings),
         zdjecie_url=request.zdjecie_url,
         uwagi=request.uwagi,
     )
     db.add(ryba)
     await db.commit()
     await db.refresh(ryba)
-    return format_ryba_response(ryba, gatunek, metoda, przyneta)
+
+    # Aktualizuj historię limitów (nieblokująco)
+    await LimitValidator.update_history(
+        db=db,
+        uzytkownik_id=current_user.id,
+        gatunek_id=request.gatunek_id,
+        lowisko_id=sesja.lowisko_id,
+        wypuszczona=request.wypuszczona,
+    )
+
+    return format_ryba_response(ryba, gatunek, metoda, przyneta).dict()
 
 
 @router.get("/sesje/{sesja_id}/ryby", response_model=List[ZlowionaRybaResponse])

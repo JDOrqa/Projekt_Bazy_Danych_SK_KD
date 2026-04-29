@@ -13,8 +13,18 @@ class LimitPolowowy(Base):
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     lowisko_id = Column(BigInteger, ForeignKey("LOWISKA.id"), nullable=False)
     gatunek_id = Column(BigInteger, ForeignKey("GATUNKI.id"), nullable=False)
+    
+    # Wymiary (można przesłonić domyślne z gatunku)
     wymiar_min_cm = Column(Numeric(5,1))
+    wymiar_max_cm = Column(Numeric(5,1))
+    
+    # Limity ilościowe
     limit_dzienny = Column(Integer)
-    sezon_ochronny = Column(DATERANGE)    # np. [2025-01-01, 2025-06-30)
+    limit_tygodniowy = Column(Integer)
+    limit_roczny = Column(Integer)
+    
+    # Okres ochronny (daterange PostgreSQL)
+    sezon_ochronny = Column(DATERANGE)
+
     created_at = Column(TIMESTAMP, server_default=func.now())
     updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())

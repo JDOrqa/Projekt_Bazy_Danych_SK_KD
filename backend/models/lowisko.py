@@ -2,7 +2,7 @@
 # Tabela LOWISKA – geometria wielokąta (PostGIS), właściciel (użytkownik).
 # Powiązane z sesjami, stacjami pomiarowymi, limitami, zarybieniami.
 
-from sqlalchemy import Column, BigInteger, String, TIMESTAMP, Numeric, Text, ForeignKey
+from sqlalchemy import Column, BigInteger, String, TIMESTAMP, Numeric, Text, ForeignKey, Boolean
 from sqlalchemy.sql import func
 from geoalchemy2 import Geometry
 from database import Base
@@ -17,6 +17,7 @@ class Lowisko(Base):
     powierzchnia_ha = Column(Numeric(10,2))
     glebokosc_max = Column(Numeric(5,2))
     opis = Column(Text)
+    no_kill = Column(Boolean, default=False)     # Czy łowisko jest "No Kill"
     wlasciciel_id = Column(BigInteger, ForeignKey("UZYTKOWNICY.id"), nullable=False)
     created_at = Column(TIMESTAMP, server_default=func.now())
     updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
