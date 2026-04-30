@@ -10,7 +10,7 @@ from sqlalchemy import text, select, func
 import logging
 
 from database import engine, AsyncSessionLocal, Base
-from routers import auth, users, lakes, catches, images, iot, limits, admin
+from routers import auth, users, lakes, catches, images, iot, limits, admin, visits
 from models.uzytkownik import Uzytkownik
 from models.rola import Rola, UzytkownikRola            
 from models.uprawnienie import Uprawnienie, RolaUprawnienie

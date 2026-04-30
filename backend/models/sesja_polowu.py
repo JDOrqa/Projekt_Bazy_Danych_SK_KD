@@ -5,7 +5,7 @@ from geoalchemy2 import Geometry
 from database import Base
 
 class SesjaPolowu(Base):
-    __tablename__ = "sesje_polowu"
+    __tablename__ = "SESJE_POLOWU"
     
     id = Column(Integer, primary_key=True, index=True)
     uzytkownik_id = Column(Integer, ForeignKey("UZYTKOWNICY.id"), nullable=False)

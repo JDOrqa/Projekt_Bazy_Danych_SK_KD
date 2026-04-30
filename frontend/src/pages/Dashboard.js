@@ -45,10 +45,10 @@ function Dashboard() {
       </div>
       <h3>Ostatnie połowy</h3>
       <table className="table">
-        <thead><tr><th>Gatunek</th><th>Waga (kg)</th><th>Data</th></tr></thead>
+        <thead><tr><th>Gatunek</th><th>Waga (g)</th><th>Data</th></tr></thead>
         <tbody>
           {stats.ostatnie_polowy.map((p, idx) => (
-              <tr key={idx}><td>{p.gatunek}</td><td>{p.waga_kg}</td><td>{new Date(p.data).toLocaleString()}</td></tr> // Formatowanie daty do czytelnej formy
+              <tr key={idx}><td>{p.gatunek}</td><td>{p.waga_g}</td><td>{new Date(p.data).toLocaleString()}</td></tr> // Formatowanie daty do czytelnej formy
           ))}
         </tbody>
       </table>

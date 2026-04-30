@@ -61,13 +61,9 @@ function NewCatch() {
                 ]);
                 setLakes(lakesRes.data);
                 setGatunki(gatunkiRes.data);
-<<<<<<< Updated upstream
                 setMetody(metodyRes.data);
                 setPrzynety(przynetyRes.data);
             } catch (err) {
-=======
-            } catch {
->>>>>>> Stashed changes
                 setError('Błąd ładowania danych pomocniczych.');
             }
 
@@ -117,15 +113,12 @@ function NewCatch() {
         e.preventDefault();
         if (rybLoading) return;
         setRybError(null);
-<<<<<<< Updated upstream
         setRybLoading(true);
-=======
 
         // Jeśli są aktywne ostrzeżenia z wymuszeniem, użytkownik musi potwierdzić
         const czyWymuszoneWypuszczenie = ostrzezenia !== null;
         const wypuszczona = czyWymuszoneWypuszczenie ? true : rybForm.wypuszczona;
 
->>>>>>> Stashed changes
         try {
             const payload = {
                 gatunek_id: parseInt(rybForm.gatunek_id),
@@ -136,15 +129,6 @@ function NewCatch() {
                 wypuszczona,
                 uwagi: rybForm.uwagi || null,
             };
-<<<<<<< Updated upstream
-            const res = await axios.post(`${API}/api/catches/sesje/${sesja.id}/ryby`, payload, { headers: authHeaders });
-            setRyby(prev => [...prev, res.data]);
-            setRybForm(f => ({ ...f, waga_g: '', dlugosc_cm: '', uwagi: '', metoda_id: '', przyneta_id: '' }));
-        } catch (err) {
-            setRybError(err.response?.data?.detail || 'Błąd dodawania ryby.');
-        } finally {
-            setRybLoading(false);
-=======
 
             const res = await axios.post(
                 `${API}/api/catches/sesje/${sesja.id}/ryby`,
@@ -154,7 +138,7 @@ function NewCatch() {
 
             // Sukces – dodaj rybę do listy i wyczyść formularz
             setRyby(prev => [res.data, ...prev]);
-            setRybForm(f => ({ ...f, waga_g: '', dlugosc_cm: '', uwagi: '', wypuszczona: false }));
+            setRybForm(f => ({ ...f, waga_g: '', dlugosc_cm: '', uwagi: '', wypuszczona: false, metoda_id: '', przyneta_id: '' }));
             setOstrzezenia(null);
             setPotwierdzoneWypuszczenie(false);
 
@@ -165,6 +149,7 @@ function NewCatch() {
             if (err.response?.status === 422 && detail?.typ === 'wymuszenie_wypuszczenia') {
                 setOstrzezenia(detail);
                 setPotwierdzoneWypuszczenie(false);
+                setRybLoading(false);
                 return;
             }
 
@@ -173,7 +158,8 @@ function NewCatch() {
                     ? detail
                     : detail?.wiadomosc || 'Błąd dodawania ryby.'
             );
->>>>>>> Stashed changes
+        } finally {
+            setRybLoading(false);
         }
     };
 
@@ -260,13 +246,9 @@ function NewCatch() {
 
     // ===== GŁÓWNY WIDOK SESJI =====
     return (
-<<<<<<< Updated upstream
-        <div className="container mt-4" style={{ maxWidth: 900 }}>
-=======
         <div className="container mt-4" style={{ maxWidth: 800 }}>
 
             {/* Karta sesji */}
->>>>>>> Stashed changes
             <div className="card mb-4">
                 <div className="card-body">
                     <h4 className="card-title">
@@ -309,43 +291,19 @@ function NewCatch() {
             <h5>Złowione ryby ({ryby.length})</h5>
             {ryby.length > 0 && (
                 <div className="table-responsive mb-3">
-<<<<<<< Updated upstream
-                    <table className="table table-sm">
-                        <thead>
-=======
                     <table className="table table-sm table-bordered">
                         <thead className="table-light">
->>>>>>> Stashed changes
                             <tr>
                                 <th>Gatunek</th>
                                 <th>Waga (g)</th>
                                 <th>Dł. (cm)</th>
-<<<<<<< Updated upstream
-                                <th>Metoda</th>
-                                <th>Przynęta</th>
-                                <th>Wypuszczona</th>
-=======
                                 <th>Status</th>
->>>>>>> Stashed changes
                                 <th>Czas</th>
                                 <th></th>
                             </tr>
                         </thead>
                         <tbody>
                             {ryby.map(r => (
-<<<<<<< Updated upstream
-                                <tr key={r.id}>
-                                    <td>{r.nazwa_gatunku || gatunek(r.gatunek_id)}</td>
-                                    <td>{r.waga_g ?? '–'}</td>
-                                    <td>{r.dlugosc_cm ?? '–'}</td>
-                                    <td>{r.nazwa_metody || '–'}</td>
-                                    <td>{r.nazwa_przynety || '–'}</td>
-                                    <td>{r.wypuszczona ? 'Tak' : 'Nie'}</td>
-                                    <td>{new Date(r.czas_zlowienia).toLocaleTimeString('pl-PL')}</td>
-                                    <td>
-                                        {!sesjaZakonczona && (
-                                            <button className="btn btn-sm btn-outline-danger" onClick={() => handleDeleteRyba(r.id)}>Usuń</button>
-=======
                                 <tr key={r.id} className={r.narusza_limit ? 'table-warning' : ''}>
                                     <td>{r.nazwa_gatunku || gatunek(r.gatunek_id)}</td>
                                     <td>{r.waga_g ?? '–'}</td>
@@ -373,7 +331,6 @@ function NewCatch() {
                                             >
                                                 Usuń
                                             </button>
->>>>>>> Stashed changes
                                         )}
                                     </td>
                                 </tr>
@@ -390,91 +347,6 @@ function NewCatch() {
                         <h6 className="card-title">Dodaj rybę</h6>
 
                         {rybError && <div className="alert alert-danger">{rybError}</div>}
-<<<<<<< Updated upstream
-                        <form onSubmit={handleAddRyba}>
-                            <div className="row g-2">
-                                <div className="col-md-6">
-                                    <label className="form-label">Gatunek *</label>
-                                    <select
-                                        className="form-select"
-                                        required
-                                        value={rybForm.gatunek_id}
-                                        onChange={e => setRybForm(f => ({ ...f, gatunek_id: e.target.value }))}
-                                    >
-                                        <option value="">-- wybierz --</option>
-                                        {gatunki.map(g => <option key={g.id} value={g.id}>{g.nazwa_polska}</option>)}
-                                    </select>
-                                </div>
-                                <div className="col-md-3">
-                                    <label className="form-label">Waga (g)</label>
-                                    <input
-                                        type="number"
-                                        min="1"                                   
-                                        className="form-control"
-                                        required
-                                        value={rybForm.waga_g}
-                                        onChange={e => setRybForm(f => ({ ...f, waga_g: e.target.value }))}
-                                    />
-                                </div>
-                                <div className="col-md-3">
-                                    <label className="form-label">Długość (cm)</label>
-                                    <input
-                                        type="number"
-                                        step="0.1"
-                                        min="0.1"
-                                        className="form-control"
-                                        required
-                                        value={rybForm.dlugosc_cm}
-                                        onChange={e => setRybForm(f => ({ ...f, dlugosc_cm: e.target.value }))}
-                                    />
-                                </div>
-                                <div className="col-md-6">
-                                    <label className="form-label">Metoda połowu</label>
-                                    <select
-                                        className="form-select"
-                                        value={rybForm.metoda_id}
-                                        onChange={e => setRybForm(f => ({ ...f, metoda_id: e.target.value }))}
-                                    >
-                                        <option value="">-- brak / nie wybrano --</option>
-                                        {metody.map(m => <option key={m.id} value={m.id}>{m.nazwa}</option>)}
-                                    </select>
-                                </div>
-                                <div className="col-md-6">
-                                    <label className="form-label">Przynęta</label>
-                                    <select
-                                        className="form-select"
-                                        value={rybForm.przyneta_id}
-                                        onChange={e => setRybForm(f => ({ ...f, przyneta_id: e.target.value }))}
-                                    >
-                                        <option value="">-- brak / nie wybrano --</option>
-                                        {przynety.map(p => <option key={p.id} value={p.id}>{p.nazwa}</option>)}
-                                    </select>
-                                </div>
-                                <div className="col-md-6 d-flex align-items-end">
-                                    <div className="form-check mb-1">
-                                        <input
-                                            type="checkbox"
-                                            className="form-check-input"
-                                            id="wypuszczona"
-                                            checked={rybForm.wypuszczona}
-                                            onChange={e => setRybForm(f => ({ ...f, wypuszczona: e.target.checked }))}
-                                        />
-                                        <label className="form-check-label" htmlFor="wypuszczona">Wypuszczona</label>
-                                    </div>
-                                </div>
-                                <div className="col-md-6">
-                                    <label className="form-label">Uwagi</label>
-                                    <input
-                                        type="text"
-                                        className="form-control"
-                                        value={rybForm.uwagi}
-                                        onChange={e => setRybForm(f => ({ ...f, uwagi: e.target.value }))}
-                                    />
-                                </div>
-                                <div className="col-12">
-                                    <button type="submit" className="btn btn-success" disabled={rybLoading}>
-                                        {rybLoading ? 'Dodawanie...' : 'Dodaj rybę'}
-=======
 
                         {/* Panel ostrzeżeń – pojawia się gdy backend zwróci 422 */}
                         {ostrzezenia && (
@@ -508,7 +380,6 @@ function NewCatch() {
                                         onClick={handleOdrzucOstrzezenia}
                                     >
                                         Anuluj
->>>>>>> Stashed changes
                                     </button>
                                 </div>
                             </div>
@@ -573,7 +444,32 @@ function NewCatch() {
                                             </label>
                                         </div>
                                     </div>
-
+                                    <div className="col-md-6">
+                                        <label className="form-label">Metoda połowu</label>
+                                        <select
+                                            className="form-select"
+                                            value={rybForm.metoda_id}
+                                            onChange={e => handleRybFormChange('metoda_id', e.target.value)}
+                                        >
+                                            <option value="">-- wybierz --</option>
+                                            {metody.map(m => (
+                                                <option key={m.id} value={m.id}>{m.nazwa}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div className="col-md-6">
+                                        <label className="form-label">Przynęta</label>
+                                        <select
+                                            className="form-select"
+                                            value={rybForm.przyneta_id}
+                                            onChange={e => handleRybFormChange('przyneta_id', e.target.value)}
+                                        >
+                                            <option value="">-- wybierz --</option>
+                                            {przynety.map(p => (
+                                                <option key={p.id} value={p.id}>{p.nazwa}</option>
+                                            ))}
+                                        </select>
+                                    </div>
                                     <div className="col-md-6">
                                         <label className="form-label">Uwagi</label>
                                         <input
@@ -585,8 +481,8 @@ function NewCatch() {
                                     </div>
 
                                     <div className="col-12">
-                                        <button type="submit" className="btn btn-success">
-                                            Dodaj rybę
+                                        <button type="submit" className="btn btn-success" disabled={rybLoading}>
+                                            {rybLoading ? 'Dodawanie...' : 'Dodaj rybę'}
                                         </button>
                                     </div>
                                 </div>

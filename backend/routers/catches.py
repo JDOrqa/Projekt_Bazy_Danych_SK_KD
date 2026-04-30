@@ -155,7 +155,29 @@ async def end_session(
     await db.commit()
     await db.refresh(sesja)
     return format_sesja_response(sesja)
-
+@router.get("/sesje/aktywna")
+async def get_active_session(
+    current_user: Uzytkownik = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    try:
+        result = await db.execute(
+            select(SesjaPolowu).where(
+                SesjaPolowu.uzytkownik_id == current_user.id,
+                SesjaPolowu.data_zakonczenia.is_(None)
+            )
+        )
+        sesja = result.scalar_one_or_none()
+        if not sesja:
+            raise HTTPException(status_code=404, detail="Brak aktywnej sesji")
+        resp = format_sesja_response(sesja).dict()
+        return resp
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Wewnętrzny błąd: {str(e)}")
 # historia sesji, z opcją filtrowania tylko aktywnych, paginacją limit/offset i sortowaniem najnowsze pierwsze
 @router.get("/sesje", response_model=List[SesjaResponse])#
 async def list_sessions(
@@ -171,6 +193,7 @@ async def list_sessions(
     q = q.order_by(SesjaPolowu.data_rozpoczecia.desc()).offset(offset).limit(limit)
     result = await db.execute(q)
     return [format_sesja_response(s) for s in result.scalars().all()]
+
 
 
 
@@ -205,21 +228,6 @@ async def get_session_details(
     return SesjaDetailResponse(**response_data)
 
 
-@router.get("/sesje/aktywna", response_model=SesjaResponse) #dodanie endpointu do pobierania aktualnie aktywnej sesji, jeśli istnieje, wraz z odpowiednim sprawdzeniem i formatowaniem odpowiedzi
-async def get_active_session(
-    current_user: Uzytkownik = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
-):
-    result = await db.execute(
-        select(SesjaPolowu).where(
-            SesjaPolowu.uzytkownik_id == current_user.id,
-            SesjaPolowu.data_zakonczenia.is_(None)
-        )
-    )
-    sesja = result.scalar_one_or_none()
-    if not sesja:
-        raise HTTPException(status_code=404, detail="Brak aktywnej sesji")
-    return format_sesja_response(sesja)
 
 
 
@@ -273,13 +281,6 @@ async def add_fish(
 ):
     """
     Dodaj złowioną rybę do sesji.
-
-    Logika walidacji:
-    - Jeśli ryba narusza limity (za mała, za duża, chroniona, no-kill, limit dzienny)
-      i użytkownik NIE zaznaczył wypuszczona=True → zwraca HTTP 422 z listą ostrzeżeń.
-      Frontend musi pokazać ostrzeżenia i wymusić zaznaczenie "wypuszczona".
-    - Jeśli użytkownik zaznaczył wypuszczona=True (świadomie) → ryba jest zapisywana
-      z flagą narusza_limit i powodem.
     """
     sesja = await db.get(SesjaPolowu, sesja_id)
     if not sesja or sesja.uzytkownik_id != current_user.id:
@@ -344,8 +345,31 @@ async def add_fish(
         uwagi=request.uwagi,
     )
     db.add(ryba)
+    await db.flush()  # Pobierz ID bez zamykania sesji
+    
+    # Skopiuj dane PRZED committem
+    ryba_data = {
+        "id": ryba.id,
+        "sesja_id": ryba.sesja_id,
+        "gatunek_id": ryba.gatunek_id,
+        "waga_g": ryba.waga_g,
+        "dlugosc_cm": ryba.dlugosc_cm,
+        "metoda_id": ryba.metoda_id,
+        "przyneta_id": ryba.przyneta_id,
+        "wypuszczona": ryba.wypuszczona,
+        "powod_wypuszczenia": ryba.powod_wypuszczenia,
+        "narusza_limit": ryba.narusza_limit,
+        "powod_naruszenia": ryba.powod_naruszenia,
+        "ostrzezenie_wyswietlone": ryba.ostrzezenie_wyswietlone,
+        "zdjecie_url": ryba.zdjecie_url,
+        "uwagi": ryba.uwagi,
+        "czas_zlowienia": ryba.czas_zlowienia,
+        "nazwa_gatunku": gatunek.nazwa_polska if gatunek else None,
+        "nazwa_metody": metoda.nazwa if metoda else None,
+        "nazwa_przynety": przyneta.nazwa if przyneta else None,
+    }
+    
     await db.commit()
-    await db.refresh(ryba)
 
     # Aktualizuj historię limitów (nieblokująco)
     await LimitValidator.update_history(
@@ -356,7 +380,7 @@ async def add_fish(
         wypuszczona=request.wypuszczona,
     )
 
-    return format_ryba_response(ryba, gatunek, metoda, przyneta).dict()
+    return ryba_data
 
 
 @router.get("/sesje/{sesja_id}/ryby", response_model=List[ZlowionaRybaResponse])
@@ -403,10 +427,16 @@ async def update_fish(
 
     await db.commit()
     await db.refresh(ryba)
-    g = await db.get(Gatunek, ryba.gatunek_id) if ryba.gatunek_id else None
-    m = await db.get(MetodaPolowu, ryba.metoda_id) if ryba.metoda_id else None
-    p = await db.get(Przyneta, ryba.przyneta_id) if ryba.przyneta_id else None
-    return format_ryba_response(ryba, g, m, p)
+
+    gatunek = await db.get(Gatunek, ryba.gatunek_id) if ryba.gatunek_id else None
+    metoda = await db.get(MetodaPolowu, ryba.metoda_id) if ryba.metoda_id else None
+    przyneta = await db.get(Przyneta, ryba.przyneta_id) if ryba.przyneta_id else None
+
+    # Pobierz rybę ponownie z bazy
+    ryba_refreshed = await db.get(ZlowionaRyba, ryba.id)
+    await db.refresh(ryba_refreshed)
+
+    return format_ryba_response(ryba_refreshed, gatunek, metoda, przyneta).dict()
 
 
 @router.delete("/ryby/{ryba_id}", status_code=status.HTTP_204_NO_CONTENT)

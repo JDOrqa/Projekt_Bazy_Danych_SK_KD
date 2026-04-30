@@ -20,6 +20,11 @@ import UploadImage from './pages/UploadImage';
 import AdminPanel from './pages/AdminPanel';
 import GatunkiList from './pages/GatunkiList';
 import Userinfo from './pages/Userinfo';  
+import LimitsManagement from './pages/LimitsManagement';
+import ZarybieniePage from './pages/ZarybieniePage';
+import NewVisit from './pages/NewVisit';
+import VisitHistory from './pages/VisitHistory';
+
 
 
 function AppRoutes() {

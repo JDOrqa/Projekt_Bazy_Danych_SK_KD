@@ -1,10 +1,9 @@
 # Plik: routers/limits.py
 # CRUD dla limitów połowowych. Admin i Właściciel mogą zarządzać limitami.
-# Endpointy: GET (publiczne dla zalogowanych), POST, PUT, DELETE (admin/właściciel).
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_
+from sqlalchemy import select, and_, func
 from typing import List, Optional
 from datetime import date
 
@@ -57,7 +56,19 @@ def format_limit_response(limit: LimitPolowowy, nazwa_gatunku: str = None, nazwa
     }
 
 
-# GET /limits – lista wszystkich limitów (opcjonalnie filtruj po łowisku)
+def serialize_audit_data(data: dict) -> dict:
+    """Konwertuje daty na stringi dla JSON serializacji"""
+    serialized = {}
+    for key, value in data.items():
+        if isinstance(value, date):
+            serialized[key] = value.isoformat()
+        elif isinstance(value, (list, tuple)) and value and isinstance(value[0], date):
+            serialized[key] = [v.isoformat() if isinstance(v, date) else v for v in value]
+        else:
+            serialized[key] = value
+    return serialized
+
+
 @router.get("/", response_model=List[LimitPolowowyResponse])
 async def list_limits(
     lowisko_id: Optional[int] = None,
@@ -89,7 +100,6 @@ async def list_limits(
     return response
 
 
-# GET /limits/{limit_id} – szczegóły jednego limitu
 @router.get("/{limit_id}", response_model=LimitPolowowyResponse)
 async def get_limit(
     limit_id: int,
@@ -110,7 +120,6 @@ async def get_limit(
     )
 
 
-# POST /limits – tworzenie nowego limitu (Admin lub Właściciel)
 @router.post("/", response_model=LimitPolowowyResponse, status_code=status.HTTP_201_CREATED)
 async def create_limit(
     data: LimitPolowowyCreate,
@@ -121,7 +130,6 @@ async def create_limit(
     if not await is_owner_or_admin(current_user, db):
         raise HTTPException(status_code=403, detail="Brak uprawnień do zarządzania limitami")
 
-    # Sprawdź czy łowisko i gatunek istnieją
     lowisko = await db.get(Lowisko, data.lowisko_id)
     if not lowisko or lowisko.deleted_at:
         raise HTTPException(status_code=404, detail="Łowisko nie istnieje")
@@ -130,7 +138,6 @@ async def create_limit(
     if not gatunek or gatunek.deleted_at:
         raise HTTPException(status_code=404, detail="Gatunek nie istnieje")
 
-    # Sprawdź czy limit dla tej pary (łowisko, gatunek) już istnieje
     existing = await db.execute(
         select(LimitPolowowy).where(
             and_(
@@ -145,11 +152,10 @@ async def create_limit(
             detail="Limit dla tego gatunku na tym łowisku już istnieje. Użyj PUT aby zaktualizować."
         )
 
-    # Konwersja sezon_ochronny (tuple) na daterange PostgreSQL
+    # Konwersja sezon_ochronny na daterange PostgreSQL
     sezon = None
     if data.sezon_ochronny:
-        from psycopg2.extras import DateRange
-        sezon = DateRange(data.sezon_ochronny[0], data.sezon_ochronny[1])
+        sezon = func.daterange(data.sezon_ochronny[0], data.sezon_ochronny[1])
 
     limit = LimitPolowowy(
         lowisko_id=data.lowisko_id,
@@ -165,7 +171,9 @@ async def create_limit(
     await db.commit()
     await db.refresh(limit)
 
-    await log_audit(db, current_user.id, "LIMITY_POLOWOWE", limit.id, "INSERT", None, data.dict())
+    # Serialize audit data
+    audit_data = serialize_audit_data(data.dict())
+    await log_audit(db, current_user.id, "LIMITY_POLOWOWE", limit.id, "INSERT", None, audit_data)
 
     return LimitPolowowyResponse(
         **format_limit_response(
@@ -176,7 +184,6 @@ async def create_limit(
     )
 
 
-# PUT /limits/{limit_id} – aktualizacja limitu
 @router.put("/{limit_id}", response_model=LimitPolowowyResponse)
 async def update_limit(
     limit_id: int,
@@ -203,15 +210,17 @@ async def update_limit(
     if data.limit_roczny is not None:
         limit.limit_roczny = data.limit_roczny
     if data.sezon_ochronny is not None:
-        from psycopg2.extras import DateRange
-        limit.sezon_ochronny = DateRange(data.sezon_ochronny[0], data.sezon_ochronny[1])
+        sezon = func.daterange(data.sezon_ochronny[0], data.sezon_ochronny[1])
+        limit.sezon_ochronny = sezon
     elif 'sezon_ochronny' in data.dict(exclude_unset=False) and data.sezon_ochronny is None:
         limit.sezon_ochronny = None
 
     await db.commit()
     await db.refresh(limit)
 
-    await log_audit(db, current_user.id, "LIMITY_POLOWOWE", limit_id, "UPDATE", None, data.dict(exclude_unset=True))
+    # Serialize audit data
+    audit_data = serialize_audit_data(data.dict(exclude_unset=True))
+    await log_audit(db, current_user.id, "LIMITY_POLOWOWE", limit_id, "UPDATE", None, audit_data)
 
     gatunek = await db.get(Gatunek, limit.gatunek_id)
     lowisko = await db.get(Lowisko, limit.lowisko_id)
@@ -224,7 +233,6 @@ async def update_limit(
     )
 
 
-# DELETE /limits/{limit_id} – usunięcie limitu
 @router.delete("/{limit_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_limit(
     limit_id: int,

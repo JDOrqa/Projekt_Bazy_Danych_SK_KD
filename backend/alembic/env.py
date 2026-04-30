@@ -6,9 +6,9 @@ from sqlalchemy import pool
 from sqlalchemy.ext.asyncio import async_engine_from_config
 from alembic import context
 
-# Importuj bazową deklarację i modele (dostosuj ścieżki do swojej struktury)
+
 from database import Base
-from models import *  # noqa
+from models import *  
 
 # Konfiguracja logowania na podstawie pliku alembic.ini (jeśli istnieje)
 if context.config.config_file_name is not None:
@@ -60,9 +60,7 @@ exclude_tables = [
 def include_object(object, name, type_, reflected, compare_to):
     if type_ == "table" and name in exclude_tables:
         return False
-    # Tutaj możesz dodać warunek dla schematu, jeśli tabele PostGIS są w innym schemacie
-    # if getattr(object, 'schema', None) == 'tiger':
-    #    return False
+  
     return True
 def run_migrations_offline():
     """Uruchom migracje w trybie offline (bez połączenia z bazą)."""
