@@ -4,7 +4,6 @@ import { useAuth } from '../context/AuthContext';
 
 const API = process.env.REACT_APP_API_URL;
 
-// Mapowanie typów ostrzeżeń na czytelne etykiety
 const ETYKIETY_OSTRZEZEN = {
     wymiar_minimalny: '📏 Za mała',
     wymiar_maksymalny: '📏 Za duża',
@@ -38,11 +37,7 @@ function NewCatch() {
         uwagi: '',
     });
 
-    // Stan ostrzeżeń – gdy backend zwróci 422 z wymuszeniem wypuszczenia
     const [ostrzezenia, setOstrzezenia] = useState(null);
-    // Czy użytkownik potwierdził wypuszczenie po zobaczeniu ostrzeżeń
-    const [potwierdzoneWypuszczenie, setPotwierdzoneWypuszczenie] = useState(false);
-
     const [error, setError] = useState(null);
     const [rybError, setRybError] = useState(null);
     const [loading, setLoading] = useState(false);
@@ -79,7 +74,7 @@ function NewCatch() {
             }
         };
         fetchData();
-    }, [accessToken]);
+    }, [accessToken]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const handleStartSesja = async (e) => {
         e.preventDefault();
@@ -99,25 +94,21 @@ function NewCatch() {
         }
     };
 
-    // Resetuje stan ostrzeżeń przy zmianie formularza
     const handleRybFormChange = (field, value) => {
         setRybForm(f => ({ ...f, [field]: value }));
-        // Jeśli użytkownik zmienia gatunek lub długość – wyczyść ostrzeżenia
         if (field === 'gatunek_id' || field === 'dlugosc_cm') {
             setOstrzezenia(null);
-            setPotwierdzoneWypuszczenie(false);
         }
     };
 
     const handleAddRyba = async (e) => {
-        e.preventDefault();
+        if (e && e.preventDefault) e.preventDefault();
         if (rybLoading) return;
         setRybError(null);
         setRybLoading(true);
 
-        // Jeśli są aktywne ostrzeżenia z wymuszeniem, użytkownik musi potwierdzić
-        const czyWymuszoneWypuszczenie = ostrzezenia !== null;
-        const wypuszczona = czyWymuszoneWypuszczenie ? true : rybForm.wypuszczona;
+        // Jeśli są aktywne ostrzeżenia – użytkownik potwierdził wypuszczenie
+        const wypuszczona = ostrzezenia ? true : rybForm.wypuszczona;
 
         try {
             const payload = {
@@ -136,11 +127,11 @@ function NewCatch() {
                 { headers: authHeaders }
             );
 
-            // Sukces – dodaj rybę do listy i wyczyść formularz
             setRyby(prev => [res.data, ...prev]);
-            setRybForm(f => ({ ...f, waga_g: '', dlugosc_cm: '', uwagi: '', wypuszczona: false, metoda_id: '', przyneta_id: '' }));
+
+            setRybForm(f => ({ ...f, waga_g: '', dlugosc_cm: '', uwagi: '', metoda_id: '', przyneta_id: '', wypuszczona: false }));
+
             setOstrzezenia(null);
-            setPotwierdzoneWypuszczenie(false);
 
         } catch (err) {
             const detail = err.response?.data?.detail;
@@ -148,25 +139,18 @@ function NewCatch() {
             // HTTP 422 z wymuszeniem wypuszczenia
             if (err.response?.status === 422 && detail?.typ === 'wymuszenie_wypuszczenia') {
                 setOstrzezenia(detail);
-                setPotwierdzoneWypuszczenie(false);
-                setRybLoading(false);
-                return;
+
+            } else {
+                setRybError(
+                    typeof detail === 'string'
+                        ? detail
+                        : detail?.wiadomosc || 'Błąd dodawania ryby.'
+                );
             }
 
-            setRybError(
-                typeof detail === 'string'
-                    ? detail
-                    : detail?.wiadomosc || 'Błąd dodawania ryby.'
-            );
         } finally {
             setRybLoading(false);
         }
-    };
-
-    const handleOdrzucOstrzezenia = () => {
-        // Użytkownik anuluje – czyści ostrzeżenia, ryba nie jest dodawana
-        setOstrzezenia(null);
-        setPotwierdzoneWypuszczenie(false);
     };
 
     const handleDeleteRyba = async (rybaId) => {
@@ -174,7 +158,7 @@ function NewCatch() {
             await axios.delete(`${API}/api/catches/ryby/${rybaId}`, { headers: authHeaders });
             setRyby(prev => prev.filter(r => r.id !== rybaId));
         } catch (err) {
-            setRybError(err.response?.data?.detail || 'Błąd usuwania ryby.');
+            alert('Błąd usuwania ryby: ' + (err.response?.data?.detail || err.message));
         }
     };
 
@@ -200,13 +184,12 @@ function NewCatch() {
         }
     };
 
-    const gatunek = (id) => gatunki.find(g => g.id === id)?.nazwa_polska || `#${id}`;
+    const nazwaGatunku = (id) => gatunki.find(g => g.id === id)?.nazwa_polska || `#${id}`;
 
     if (checkingActive) {
         return <div className="container mt-4 text-center">Ładowanie...</div>;
     }
 
-    // ===== EKRAN STARTOWY – brak sesji =====
     if (!sesja) {
         return (
             <div className="container mt-4" style={{ maxWidth: 600 }}>
@@ -244,9 +227,10 @@ function NewCatch() {
 
     const sesjaZakonczona = !!sesja.data_zakonczenia;
 
-    // ===== GŁÓWNY WIDOK SESJI =====
     return (
-        <div className="container mt-4" style={{ maxWidth: 800 }}>
+
+        <div className="container mt-4" style={{ maxWidth: 900 }}>
+
 
             {/* Karta sesji */}
             <div className="card mb-4">
@@ -276,12 +260,8 @@ function NewCatch() {
 
                     {!sesjaZakonczona && (
                         <div className="d-flex gap-2 mt-3">
-                            <button className="btn btn-warning" onClick={handleKoniecSesji}>
-                                Zakończ sesję
-                            </button>
-                            <button className="btn btn-outline-danger" onClick={handleDeleteSesja}>
-                                Usuń sesję
-                            </button>
+                            <button className="btn btn-warning" onClick={handleKoniecSesji}>Zakończ sesję</button>
+                            <button className="btn btn-outline-danger" onClick={handleDeleteSesja}>Usuń sesję</button>
                         </div>
                     )}
                 </div>
@@ -297,6 +277,10 @@ function NewCatch() {
                                 <th>Gatunek</th>
                                 <th>Waga (g)</th>
                                 <th>Dł. (cm)</th>
+
+                                <th>Metoda</th>
+                                <th>Przynęta</th>
+
                                 <th>Status</th>
                                 <th>Czas</th>
                                 <th></th>
@@ -305,19 +289,20 @@ function NewCatch() {
                         <tbody>
                             {ryby.map(r => (
                                 <tr key={r.id} className={r.narusza_limit ? 'table-warning' : ''}>
-                                    <td>{r.nazwa_gatunku || gatunek(r.gatunek_id)}</td>
+
+                                    <td>{r.nazwa_gatunku || nazwaGatunku(r.gatunek_id)}</td>
                                     <td>{r.waga_g ?? '–'}</td>
                                     <td>{r.dlugosc_cm ?? '–'}</td>
+                                    <td>{r.nazwa_metody || '–'}</td>
+                                    <td>{r.nazwa_przynety || '–'}</td>
+
                                     <td>
                                         {r.wypuszczona
                                             ? <span className="badge bg-info text-dark">Wypuszczona</span>
                                             : <span className="badge bg-success">Zatrzymana</span>
                                         }
                                         {r.narusza_limit && (
-                                            <span
-                                                className="badge bg-warning text-dark ms-1"
-                                                title={r.powod_naruszenia}
-                                            >
+                                            <span className="badge bg-warning text-dark ms-1" title={r.powod_naruszenia}>
                                                 ⚠️ Naruszenie
                                             </span>
                                         )}
@@ -325,12 +310,9 @@ function NewCatch() {
                                     <td>{new Date(r.czas_zlowienia).toLocaleTimeString('pl-PL')}</td>
                                     <td>
                                         {!sesjaZakonczona && (
-                                            <button
-                                                className="btn btn-sm btn-outline-danger"
-                                                onClick={() => handleDeleteRyba(r.id)}
-                                            >
-                                                Usuń
-                                            </button>
+
+                                            <button className="btn btn-sm btn-outline-danger" onClick={() => handleDeleteRyba(r.id)}>Usuń</button>
+
                                         )}
                                     </td>
                                 </tr>
@@ -350,34 +332,30 @@ function NewCatch() {
 
                         {/* Panel ostrzeżeń – pojawia się gdy backend zwróci 422 */}
                         {ostrzezenia && (
-                            <div className="alert alert-danger border-danger mb-3">
-                                <h6 className="alert-heading fw-bold">
-                                    🚫 Ryba musi zostać wypuszczona!
-                                </h6>
+                            <div className="alert alert-danger mb-3">
+                                <h6 className="alert-heading fw-bold">🚫 Ryba musi zostać wypuszczona!</h6>
                                 <ul className="mb-2">
                                     {ostrzezenia.ostrzezenia.map((o, i) => (
                                         <li key={i}>
-                                            <strong>{ETYKIETY_OSTRZEZEN[o.typ] || o.typ}:</strong>{' '}
-                                            {o.wiadomosc}
+                                            <strong>{ETYKIETY_OSTRZEZEN[o.typ] || o.typ}:</strong> {o.wiadomosc}
                                         </li>
                                     ))}
                                 </ul>
                                 <hr />
-                                <p className="mb-2">
-                                    Aby zapisać połów, musisz potwierdzić że ryba zostanie wypuszczona.
-                                </p>
+                                <p className="mb-2">Aby zapisać połów, potwierdź że ryba zostanie wypuszczona.</p>
                                 <div className="d-flex gap-2">
                                     <button
                                         type="button"
                                         className="btn btn-danger"
+                                        disabled={rybLoading}
                                         onClick={handleAddRyba}
                                     >
-                                        ✓ Potwierdzam – wypuszczam rybę
+                                        {rybLoading ? 'Zapisywanie...' : '✓ Potwierdzam – wypuszczam rybę'}
                                     </button>
                                     <button
                                         type="button"
                                         className="btn btn-secondary"
-                                        onClick={handleOdrzucOstrzezenia}
+                                        onClick={() => setOstrzezenia(null)}
                                     >
                                         Anuluj
                                     </button>
@@ -429,21 +407,6 @@ function NewCatch() {
                                             onChange={e => handleRybFormChange('dlugosc_cm', e.target.value)}
                                         />
                                     </div>
-
-                                    <div className="col-md-6 d-flex align-items-end">
-                                        <div className="form-check mb-1">
-                                            <input
-                                                type="checkbox"
-                                                className="form-check-input"
-                                                id="wypuszczona"
-                                                checked={rybForm.wypuszczona}
-                                                onChange={e => handleRybFormChange('wypuszczona', e.target.checked)}
-                                            />
-                                            <label className="form-check-label" htmlFor="wypuszczona">
-                                                Wypuszczona
-                                            </label>
-                                        </div>
-                                    </div>
                                     <div className="col-md-6">
                                         <label className="form-label">Metoda połowu</label>
                                         <select
@@ -451,10 +414,8 @@ function NewCatch() {
                                             value={rybForm.metoda_id}
                                             onChange={e => handleRybFormChange('metoda_id', e.target.value)}
                                         >
-                                            <option value="">-- wybierz --</option>
-                                            {metody.map(m => (
-                                                <option key={m.id} value={m.id}>{m.nazwa}</option>
-                                            ))}
+                                            <option value="">-- brak --</option>
+                                            {metody.map(m => <option key={m.id} value={m.id}>{m.nazwa}</option>)}
                                         </select>
                                     </div>
                                     <div className="col-md-6">
@@ -464,12 +425,24 @@ function NewCatch() {
                                             value={rybForm.przyneta_id}
                                             onChange={e => handleRybFormChange('przyneta_id', e.target.value)}
                                         >
-                                            <option value="">-- wybierz --</option>
-                                            {przynety.map(p => (
-                                                <option key={p.id} value={p.id}>{p.nazwa}</option>
-                                            ))}
+                                            <option value="">-- brak --</option>
+                                            {przynety.map(p => <option key={p.id} value={p.id}>{p.nazwa}</option>)}
                                         </select>
                                     </div>
+                                    <div className="col-md-6 d-flex align-items-end">
+                                        <div className="form-check mb-1">
+                                            <input
+                                                type="checkbox"
+                                                className="form-check-input"
+                                                id="wypuszczona"
+                                                checked={rybForm.wypuszczona}
+                                                onChange={e => handleRybFormChange('wypuszczona', e.target.checked)}
+                                            />
+                                            <label className="form-check-label" htmlFor="wypuszczona">Wypuszczona</label>
+                                        </div>
+                                    </div>
+
+
                                     <div className="col-md-6">
                                         <label className="form-label">Uwagi</label>
                                         <input
@@ -479,7 +452,6 @@ function NewCatch() {
                                             onChange={e => handleRybFormChange('uwagi', e.target.value)}
                                         />
                                     </div>
-
                                     <div className="col-12">
                                         <button type="submit" className="btn btn-success" disabled={rybLoading}>
                                             {rybLoading ? 'Dodawanie...' : 'Dodaj rybę'}

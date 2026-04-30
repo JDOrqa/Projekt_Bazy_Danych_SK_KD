@@ -1,11 +1,11 @@
 # Plik: routers/zarybienia.py
 # CRUD dla zarybień. Admin i Właściciel mogą zarządzać zarzybieniami.
-# Endpointy: GET (zalogowani), POST, PUT, DELETE (admin/właściciel).
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from typing import List, Optional
+import logging
 
 from database import get_db
 from dependencies.auth import get_current_user
@@ -15,8 +15,8 @@ from models.zarybienie import Zarybienie
 from models.lowisko import Lowisko
 from models.gatunek import Gatunek
 from schemas.zarybienie import ZarybienieTworz, ZarybieniAktualizuj, ZarybieniOdpowiedz
-from services.audit_log import log_audit
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
@@ -45,7 +45,6 @@ def format_zarybienie(z: Zarybienie, nazwa_gatunku: str = None, nazwa_lowiska: s
     }
 
 
-# GET /zarybienia – lista zarybień (opcjonalnie filtruj po łowisku)
 @router.get("/", response_model=List[ZarybieniOdpowiedz])
 async def list_zarybienia(
     lowisko_id: Optional[int] = None,
@@ -53,7 +52,6 @@ async def list_zarybienia(
     current_user: Uzytkownik = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Lista zarybień. Opcjonalne filtrowanie po łowisku lub gatunku."""
     q = select(Zarybienie)
     if lowisko_id is not None:
         q = q.where(Zarybienie.lowisko_id == lowisko_id)
@@ -61,10 +59,10 @@ async def list_zarybienia(
         q = q.where(Zarybienie.gatunek_id == gatunek_id)
     q = q.order_by(Zarybienie.data_zarybienia.desc())
     result = await db.execute(q)
-    zarybienia = result.scalars().all()
+    zarybienia_list = result.scalars().all()
 
     response = []
-    for z in zarybienia:
+    for z in zarybienia_list:
         gatunek = await db.get(Gatunek, z.gatunek_id)
         lowisko = await db.get(Lowisko, z.lowisko_id)
         response.append(ZarybieniOdpowiedz(
@@ -77,7 +75,6 @@ async def list_zarybienia(
     return response
 
 
-# GET /zarybienia/{id} – szczegóły jednego zarybienia
 @router.get("/{zarybienie_id}", response_model=ZarybieniOdpowiedz)
 async def get_zarybienie(
     zarybienie_id: int,
@@ -98,23 +95,21 @@ async def get_zarybienie(
     )
 
 
-# POST /zarybienia – dodanie zarybienia (Admin lub Właściciel)
 @router.post("/", response_model=ZarybieniOdpowiedz, status_code=status.HTTP_201_CREATED)
 async def create_zarybienie(
     data: ZarybienieTworz,
     current_user: Uzytkownik = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Dodaje zarybienie. Wymaga roli Admin lub Właściciel."""
     if not await is_owner_or_admin(current_user, db):
         raise HTTPException(status_code=403, detail="Brak uprawnień do zarządzania zarzybieniami")
 
     lowisko = await db.get(Lowisko, data.lowisko_id)
-    if not lowisko or lowisko.deleted_at:
+    if not lowisko:
         raise HTTPException(status_code=404, detail="Łowisko nie istnieje")
 
     gatunek = await db.get(Gatunek, data.gatunek_id)
-    if not gatunek or gatunek.deleted_at:
+    if not gatunek:
         raise HTTPException(status_code=404, detail="Gatunek nie istnieje")
 
     z = Zarybienie(
@@ -129,14 +124,13 @@ async def create_zarybienie(
     await db.commit()
     await db.refresh(z)
 
-    await log_audit(db, current_user.id, "ZARYBIENIA", z.id, "INSERT", None, data.dict())
+    logger.info(f"Zarybienie {z.id} dodane przez użytkownika {current_user.id}")
 
     return ZarybieniOdpowiedz(
         **format_zarybienie(z, nazwa_gatunku=gatunek.nazwa_polska, nazwa_lowiska=lowisko.nazwa)
     )
 
 
-# PUT /zarybienia/{id} – aktualizacja zarybienia
 @router.put("/{zarybienie_id}", response_model=ZarybieniOdpowiedz)
 async def update_zarybienie(
     zarybienie_id: int,
@@ -144,7 +138,6 @@ async def update_zarybienie(
     current_user: Uzytkownik = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Aktualizuje zarybienie. Wymaga roli Admin lub Właściciel."""
     if not await is_owner_or_admin(current_user, db):
         raise HTTPException(status_code=403, detail="Brak uprawnień do zarządzania zarzybieniami")
 
@@ -158,8 +151,6 @@ async def update_zarybienie(
     await db.commit()
     await db.refresh(z)
 
-    await log_audit(db, current_user.id, "ZARYBIENIA", zarybienie_id, "UPDATE", None, data.dict(exclude_unset=True))
-
     gatunek = await db.get(Gatunek, z.gatunek_id)
     lowisko = await db.get(Lowisko, z.lowisko_id)
     return ZarybieniOdpowiedz(
@@ -171,14 +162,12 @@ async def update_zarybienie(
     )
 
 
-# DELETE /zarybienia/{id} – usunięcie zarybienia
 @router.delete("/{zarybienie_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_zarybienie(
     zarybienie_id: int,
     current_user: Uzytkownik = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Usuwa zarybienie. Wymaga roli Admin lub Właściciel."""
     if not await is_owner_or_admin(current_user, db):
         raise HTTPException(status_code=403, detail="Brak uprawnień do zarządzania zarzybieniami")
 
@@ -188,4 +177,3 @@ async def delete_zarybienie(
 
     await db.delete(z)
     await db.commit()
-    await log_audit(db, current_user.id, "ZARYBIENIA", zarybienie_id, "DELETE", None, None)
