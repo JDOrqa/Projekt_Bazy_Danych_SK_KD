@@ -9,7 +9,6 @@ from datetime import datetime, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text, select, func
 import logging
-
 from database import engine, AsyncSessionLocal, Base
 from routers import auth, users, lakes, catches, images, iot, limits, admin, zarybienia, visits
 from models.uzytkownik import Uzytkownik

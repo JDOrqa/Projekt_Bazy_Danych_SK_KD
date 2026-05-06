@@ -19,12 +19,16 @@ import CatchHistory from './pages/CatchHistory';
 import UploadImage from './pages/UploadImage';
 import AdminPanel from './pages/AdminPanel';
 import GatunkiList from './pages/GatunkiList';
-import Userinfo from './pages/Userinfo';
+import Userinfo from './pages/Userinfo';  
 import LimitsManagement from './pages/LimitsManagement';
 import ZarybieniePage from './pages/ZarybieniePage';
 import StationReadings from './pages/StationReadings';
 import NewStation from './pages/NewStation';
 import StationDetail from './pages/StationDetail';
+import NewVisit from './pages/NewVisit';
+import VisitHistory from './pages/VisitHistory';
+
+
 
 
 function AppRoutes() {

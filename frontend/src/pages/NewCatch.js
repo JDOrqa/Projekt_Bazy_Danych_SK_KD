@@ -130,7 +130,9 @@ function NewCatch() {
             );
 
             setRyby(prev => [res.data, ...prev]);
+
             setRybForm(f => ({ ...f, waga_g: '', dlugosc_cm: '', uwagi: '', metoda_id: '', przyneta_id: '', wypuszczona: false }));
+
             setOstrzezenia(null);
 
         } catch (err) {
@@ -139,6 +141,7 @@ function NewCatch() {
             // HTTP 422 z wymuszeniem wypuszczenia
             if (err.response?.status === 422 && detail?.typ === 'wymuszenie_wypuszczenia') {
                 setOstrzezenia(detail);
+
             } else {
                 setRybError(
                     typeof detail === 'string'
@@ -146,6 +149,7 @@ function NewCatch() {
                         : detail?.wiadomosc || 'Błąd dodawania ryby.'
                 );
             }
+
         } finally {
             setRybLoading(false);
         }
@@ -226,7 +230,9 @@ function NewCatch() {
     const sesjaZakonczona = !!sesja.data_zakonczenia;
 
     return (
+
         <div className="container mt-4" style={{ maxWidth: 900 }}>
+
 
             {/* Karta sesji */}
             <div className="card mb-4">
@@ -273,8 +279,10 @@ function NewCatch() {
                                 <th>Gatunek</th>
                                 <th>Waga (g)</th>
                                 <th>Dł. (cm)</th>
+
                                 <th>Metoda</th>
                                 <th>Przynęta</th>
+
                                 <th>Status</th>
                                 <th>Czas</th>
                                 <th></th>
@@ -283,11 +291,13 @@ function NewCatch() {
                         <tbody>
                             {ryby.map(r => (
                                 <tr key={r.id} className={r.narusza_limit ? 'table-warning' : ''}>
+
                                     <td>{r.nazwa_gatunku || nazwaGatunku(r.gatunek_id)}</td>
                                     <td>{r.waga_g ?? '–'}</td>
                                     <td>{r.dlugosc_cm ?? '–'}</td>
                                     <td>{r.nazwa_metody || '–'}</td>
                                     <td>{r.nazwa_przynety || '–'}</td>
+
                                     <td>
                                         {r.wypuszczona
                                             ? <span className="badge bg-info text-dark">Wypuszczona</span>
@@ -302,7 +312,9 @@ function NewCatch() {
                                     <td>{new Date(r.czas_zlowienia).toLocaleTimeString('pl-PL')}</td>
                                     <td>
                                         {!sesjaZakonczona && (
+
                                             <button className="btn btn-sm btn-outline-danger" onClick={() => handleDeleteRyba(r.id)}>Usuń</button>
+
                                         )}
                                     </td>
                                 </tr>
@@ -431,6 +443,8 @@ function NewCatch() {
                                             <label className="form-check-label" htmlFor="wypuszczona">Wypuszczona</label>
                                         </div>
                                     </div>
+
+
                                     <div className="col-md-6">
                                         <label className="form-label">Uwagi</label>
                                         <input

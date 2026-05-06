@@ -30,7 +30,7 @@ class SesjaResponse(BaseModel):
     koniec_gps_lat: Optional[float]
     koniec_gps_lon: Optional[float]
     uwagi: Optional[str]
-    created_at: datetime
+    created_at: Optional[datetime] = None
     
     class Config:
         from_attributes = True
