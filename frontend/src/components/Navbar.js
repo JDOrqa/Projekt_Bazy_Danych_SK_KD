@@ -27,6 +27,7 @@ function Navbar() {
        <ul className="navbar-nav me-auto">
             <li className="nav-item"><Link className="nav-link" to="/dashboard">Dashboard</Link></li>
             <li className="nav-item"><Link className="nav-link" to="/lakes">Łowiska</Link></li>
+            <li className="nav-item"><Link className="nav-link" to="/iot">Stacje IoT</Link></li>
             <li className="nav-item"><Link className="nav-link" to="/new-catch">Nowy połów</Link></li>
             <li className="nav-item"><Link className="nav-link" to="/catches">Historia</Link></li>
             <li className="nav-item"><Link className="nav-link" to="/upload-image">Dodaj zdjęcie</Link></li>

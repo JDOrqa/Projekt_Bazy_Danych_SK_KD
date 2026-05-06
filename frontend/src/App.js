@@ -22,6 +22,9 @@ import GatunkiList from './pages/GatunkiList';
 import Userinfo from './pages/Userinfo';
 import LimitsManagement from './pages/LimitsManagement';
 import ZarybieniePage from './pages/ZarybieniePage';
+import StationReadings from './pages/StationReadings';
+import NewStation from './pages/NewStation';
+import StationDetail from './pages/StationDetail';
 
 
 function AppRoutes() {
@@ -43,6 +46,9 @@ function AppRoutes() {
             <Route path="/userinfo" element={<PrivateRoute><Userinfo /></PrivateRoute>} /> 
             <Route path="/limits" element={<PrivateRoute><LimitsManagement /></PrivateRoute>} />
             <Route path="/zarybienia" element={<PrivateRoute><ZarybieniePage /></PrivateRoute>} />
+            <Route path="/iot" element={<PrivateRoute><StationReadings /></PrivateRoute>} />
+            <Route path="/iot/new" element={<PrivateRoute><NewStation /></PrivateRoute>} />
+            <Route path="/iot/stations/:id" element={<PrivateRoute><StationDetail /></PrivateRoute>} />
             <Route path="*" element={<Navigate to="/dashboard" />} />
         </Routes>
     );
