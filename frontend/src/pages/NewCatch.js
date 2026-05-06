@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
+import { useLocation } from 'react-router-dom';
 
 const API = process.env.REACT_APP_API_URL;
 
@@ -16,6 +17,7 @@ const ETYKIETY_OSTRZEZEN = {
 
 function NewCatch() {
     const { accessToken } = useAuth();
+    const location = useLocation();
 
     const [lakes, setLakes] = useState([]);
     const [gatunki, setGatunki] = useState([]);
@@ -74,7 +76,7 @@ function NewCatch() {
             }
         };
         fetchData();
-    }, [accessToken]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [accessToken, location.pathname]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const handleStartSesja = async (e) => {
         e.preventDefault();

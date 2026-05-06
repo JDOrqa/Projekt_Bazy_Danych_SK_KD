@@ -196,8 +196,24 @@ async def list_sessions(
 
 
 
+@router.get("/sesje/aktywna", response_model=SesjaResponse)
+async def get_active_session(
+    current_user: Uzytkownik = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    result = await db.execute(
+        select(SesjaPolowu).where(
+            SesjaPolowu.uzytkownik_id == current_user.id,
+            SesjaPolowu.data_zakonczenia.is_(None)
+        )
+    )
+    sesja = result.scalar_one_or_none()
+    if not sesja:
+        raise HTTPException(status_code=404, detail="Brak aktywnej sesji")
+    return format_sesja_response(sesja)
 
-@router.get("/sesje/{sesja_id}", response_model=SesjaDetailResponse) #dodanie szczegółów sesji, czyli listy złowionych ryb wraz z nazwami gatunku, metody i przynęty, oraz nazwy łowiska i użytkownika
+
+@router.get("/sesje/{sesja_id}", response_model=SesjaDetailResponse)
 async def get_session_details(
     sesja_id: int,
     current_user: Uzytkownik = Depends(get_current_user),
@@ -226,8 +242,6 @@ async def get_session_details(
     response_data["nazwa_lowiska"] = lowisko.nazwa if lowisko else None
     response_data["nazwa_uzytkownika"] = current_user.email
     return SesjaDetailResponse(**response_data)
-
-
 
 
 
