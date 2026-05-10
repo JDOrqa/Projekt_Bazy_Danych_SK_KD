@@ -11,9 +11,9 @@ class OdczytSrodowiskowy(Base):
     
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     stacja_id = Column(BigInteger, ForeignKey("STACJE_POMIAROWE.id"), nullable=False)
-    czas_odczytu = Column(TIMESTAMP, nullable=False)
+    czas_odczytu = Column(TIMESTAMP(timezone=True), nullable=False)
     temperatura_wody_c = Column(Numeric(5,2))
     poziom_tlenu_mgl = Column(Numeric(5,2))
     ph = Column(Numeric(3,2))
     metnosc_ntu = Column(Numeric(6,2))
-    created_at = Column(TIMESTAMP, server_default=func.now())
+    created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())

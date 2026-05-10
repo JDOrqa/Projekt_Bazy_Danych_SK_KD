@@ -12,7 +12,7 @@ from models.odczyt_srodowiskowy import OdczytSrodowiskowy
 from models.lowisko import Lowisko
 from models.uzytkownik import Uzytkownik
 from models.rola import Rola, UzytkownikRola
-from schemas.iot import StacjaPomiarowaResponse, OdczytSrodowiskowyResponse, StacjaPomiarowaCreate
+from schemas.iot import StacjaPomiarowaResponse, OdczytSrodowiskowyResponse, StacjaPomiarowaCreate, ManualReadingCreate
 
 router = APIRouter()
 
@@ -24,6 +24,16 @@ SENSOR_COLUMN_MAP = {
 }
 
 
+async def _is_admin(current_user: Uzytkownik, db: AsyncSession) -> bool:
+    result = await db.execute(
+        select(Rola.nazwa)
+        .join(UzytkownikRola)
+        .where(UzytkownikRola.uzytkownik_id == current_user.id)
+    )
+    user_roles = result.scalars().all()
+    return "Admin" in user_roles
+
+
 @router.get("/stations", response_model=List[StacjaPomiarowaResponse])
 async def list_stations(
     lowisko_id: Optional[int] = Query(None),
@@ -32,7 +42,6 @@ async def list_stations(
     current_user: Uzytkownik = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Pobiera listę stacji pomiarowych z opcjonalnym filtrowaniem po łowisku, nazwie i typie czujnika."""
     query = select(StacjaPomiarowa)
     if lowisko_id is not None:
         query = query.where(StacjaPomiarowa.lowisko_id == lowisko_id)
@@ -41,10 +50,8 @@ async def list_stations(
     if sensor_type is not None:
         query = query.where(StacjaPomiarowa.typ_czujnikow.contains([sensor_type]))
     query = query.order_by(StacjaPomiarowa.nazwa)
-
     result = await db.execute(query)
-    stations = result.scalars().all()
-    return stations
+    return result.scalars().all()
 
 
 @router.post("/stations", response_model=StacjaPomiarowaResponse, status_code=201)
@@ -53,18 +60,11 @@ async def create_station(
     current_user: Uzytkownik = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    # Sprawdź, czy użytkownik ma rolę Admin
-    result = await db.execute(
-        select(Rola.nazwa).join(UzytkownikRola).where(UzytkownikRola.uzytkownik_id == current_user.id)
-    )
-    user_roles = result.scalars().all()
-    if 'Admin' not in user_roles:
-        raise HTTPException(status_code=403, detail="Tylko administrator może tworzyć stacje pomiarowe")
-
+    if not await _is_admin(current_user, db):
+        raise HTTPException(status_code=403, detail="Tylko administrator może tworzyć stacje")
     lowisko = await db.get(Lowisko, station_data.lowisko_id)
     if not lowisko:
-        raise HTTPException(status_code=400, detail="Podane łowisko nie istnieje")
-
+        raise HTTPException(status_code=400, detail="Łowisko nie istnieje")
     station = StacjaPomiarowa(
         lowisko_id=station_data.lowisko_id,
         nazwa=station_data.nazwa,
@@ -84,10 +84,9 @@ async def get_station(
     current_user: Uzytkownik = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Pobiera szczegóły pojedynczej stacji pomiarowej."""
     station = await db.get(StacjaPomiarowa, station_id)
     if not station:
-        raise HTTPException(status_code=404, detail="Stacja pomiarowa nie znaleziona")
+        raise HTTPException(status_code=404, detail="Stacja nie znaleziona")
     return station
 
 
@@ -103,29 +102,46 @@ async def list_readings(
     current_user: Uzytkownik = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Pobiera odczyty środowiskowe z filtrowaniem i paginacją."""
     query = select(OdczytSrodowiskowy)
-
     if station_id is not None:
         query = query.where(OdczytSrodowiskowy.stacja_id == station_id)
-
     if lowisko_id is not None:
         query = query.join(StacjaPomiarowa, OdczytSrodowiskowy.stacja_id == StacjaPomiarowa.id)
         query = query.where(StacjaPomiarowa.lowisko_id == lowisko_id)
-
     if sensor_type is not None:
         sensor_column = SENSOR_COLUMN_MAP.get(sensor_type.lower())
         if sensor_column is None:
             raise HTTPException(status_code=400, detail="Nieznany typ czujnika")
         query = query.where(sensor_column.is_not(None))
-
     if from_date is not None:
         query = query.where(OdczytSrodowiskowy.czas_odczytu >= from_date)
     if to_date is not None:
         query = query.where(OdczytSrodowiskowy.czas_odczytu <= to_date)
-
     query = query.order_by(desc(OdczytSrodowiskowy.czas_odczytu)).offset(skip).limit(limit)
-
     result = await db.execute(query)
-    readings = result.scalars().all()
-    return readings
+    return result.scalars().all()
+
+
+@router.post("/readings/manual", response_model=OdczytSrodowiskowyResponse, status_code=201)
+async def add_manual_reading(
+    data: ManualReadingCreate,
+    current_user: Uzytkownik = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    if not await _is_admin(current_user, db):
+        raise HTTPException(status_code=403, detail="Tylko administrator może dodawać odczyty")
+    station = await db.get(StacjaPomiarowa, data.station_id)
+    if not station:
+        raise HTTPException(status_code=404, detail="Stacja nie istnieje")
+    reading = OdczytSrodowiskowy(
+        stacja_id=data.station_id,
+        czas_odczytu=data.reading_time,
+        temperatura_wody_c=data.water_temp_c,
+        poziom_tlenu_mgl=data.oxygen_mgl,
+        ph=data.ph,
+        metnosc_ntu=data.turbidity_ntu,
+    )
+    db.add(reading)
+    await db.commit()
+    await db.refresh(reading)
+    return reading
