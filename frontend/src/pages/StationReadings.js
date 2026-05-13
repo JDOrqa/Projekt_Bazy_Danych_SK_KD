@@ -1,3 +1,6 @@
+// Plik: frontend/src/pages/StationReadings.js
+// Lista stacji pomiarowych z linkami do szczegółów i odczytami
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -108,11 +111,6 @@ function StationReadings() {
         }
     };
 
-    const getStationName = (stationId) => {
-        const station = stations.find((item) => item.id === stationId);
-        return station ? station.nazwa : `Stacja #${stationId}`;
-    };
-
     const getLatestReading = (stationId) => {
         const stationReadings = readings.filter((item) => item.stacja_id === stationId);
         return stationReadings.length ? stationReadings[0] : null;
@@ -201,7 +199,11 @@ function StationReadings() {
                                 >
                                     <div className="d-flex justify-content-between align-items-start">
                                         <div>
-                                            <strong>{station.nazwa}</strong><br />
+                                            {/* LINK DO SZCZEGÓŁÓW STACJI - KLIKALNA NAZWA */}
+                                            <Link to={`/iot/stations/${station.id}`} className="text-decoration-none fw-bold">
+                                                {station.nazwa}
+                                            </Link>
+                                            <br />
                                             <small>Łowisko: {lakeName}</small>
                                         </div>
                                         <span className="badge bg-secondary">{station.typ_czujnikow?.join(', ') || 'brak'}</span>
@@ -250,7 +252,16 @@ function StationReadings() {
                                     return (
                                         <tr key={item.id}>
                                             <td>{lakeName || 'Brak'}</td>
-                                            <td>{station ? station.nazwa : `Stacja #${item.stacja_id}`}</td>
+                                            <td>
+                                                {/* LINK DO SZCZEGÓŁÓW STACJI W TABELI */}
+                                                {station ? (
+                                                    <Link to={`/iot/stations/${station.id}`} className="text-decoration-none">
+                                                        {station.nazwa}
+                                                    </Link>
+                                                ) : (
+                                                    `Stacja #${item.stacja_id}`
+                                                )}
+                                            </td>
                                             <td>{new Date(item.czas_odczytu).toLocaleString('pl-PL')}</td>
                                             <td>{item.temperatura_wody_c ?? '-'}</td>
                                             <td>{item.poziom_tlenu_mgl ?? '-'}</td>
