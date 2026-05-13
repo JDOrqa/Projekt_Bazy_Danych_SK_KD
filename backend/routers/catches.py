@@ -22,7 +22,6 @@ from schemas.ryba import (
     ZlowionaRybaCreateRequest, ZlowionaRybaUpdateRequest,
     ZlowionaRybaResponse
 )
-from services.limits_validator import LimitValidator
 
 from geoalchemy2.shape import from_shape, to_shape
 from shapely.geometry import Point
@@ -41,10 +40,10 @@ def format_sesja_response(sesja: SesjaPolowu) -> SesjaResponse:
         "id": sesja.id,
         "uzytkownik_id": sesja.uzytkownik_id,
         "lowisko_id": sesja.lowisko_id,
-        "data_rozpoczecia": sesja.data_rozpoczecia,
-        "data_zakonczenia": sesja.data_zakonczenia,
+        "data_rozpoczecia": sesja.start_czas,
+        "data_zakonczenia": sesja.koniec_czas,
         "uwagi": sesja.uwagi,
-        "created_at": sesja.created_at,
+        "created_at": sesja.created_at if hasattr(sesja, 'created_at') else None,
         "start_gps_lat": None,
         "start_gps_lon": None,
         "koniec_gps_lat": None,
@@ -66,16 +65,12 @@ def format_ryba_response(ryba: ZlowionaRyba, gatunek=None, metoda=None, przyneta
         id=ryba.id,
         sesja_id=ryba.sesja_id,
         gatunek_id=ryba.gatunek_id,
-        waga_g=ryba.waga_g,
+        waga_g=ryba.waga_kg,
         dlugosc_cm=ryba.dlugosc_cm,
         metoda_id=ryba.metoda_id,
         przyneta_id=ryba.przyneta_id,
         wypuszczona=ryba.wypuszczona,
-        powod_wypuszczenia=ryba.powod_wypuszczenia,
-        narusza_limit=ryba.narusza_limit,
-        powod_naruszenia=ryba.powod_naruszenia,
-        ostrzezenie_wyswietlone=ryba.ostrzezenie_wyswietlone,
-        zdjecie_url=ryba.zdjecie_url,
+        zdjecie_url=None,
         uwagi=ryba.uwagi,
         czas_zlowienia=ryba.czas_zlowienia,
         nazwa_gatunku=gatunek.nazwa_polska if gatunek else None,
@@ -119,7 +114,7 @@ async def start_session(
     aktywna = await db.execute(
         select(SesjaPolowu).where(
             SesjaPolowu.uzytkownik_id == current_user.id,
-            SesjaPolowu.data_zakonczenia.is_(None)
+            SesjaPolowu.koniec_czas.is_(None)
         )
     )
     if aktywna.scalar_one_or_none():
@@ -128,6 +123,7 @@ async def start_session(
     sesja = SesjaPolowu(
         uzytkownik_id=current_user.id,
         lowisko_id=request.lowisko_id,
+        start_czas=datetime.utcnow(),
         start_gps=gps_point(request.start_gps_lat, request.start_gps_lon),
         uwagi=request.uwagi,
     )
@@ -147,53 +143,14 @@ async def end_session(
     sesja = await db.get(SesjaPolowu, sesja_id)
     if not sesja or sesja.uzytkownik_id != current_user.id:
         raise HTTPException(status_code=404, detail="Sesja nie istnieje lub nie należy do Ciebie")
-    if sesja.data_zakonczenia:
+    if sesja.koniec_czas:
         raise HTTPException(status_code=400, detail="Sesja została już zakończona")
 
-    sesja.data_zakonczenia = datetime.utcnow()
+    sesja.koniec_czas = datetime.utcnow()
     sesja.koniec_gps = gps_point(request.koniec_gps_lat, request.koniec_gps_lon)
     await db.commit()
     await db.refresh(sesja)
     return format_sesja_response(sesja)
-@router.get("/sesje/aktywna")
-async def get_active_session(
-    current_user: Uzytkownik = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
-):
-    try:
-        result = await db.execute(
-            select(SesjaPolowu).where(
-                SesjaPolowu.uzytkownik_id == current_user.id,
-                SesjaPolowu.data_zakonczenia.is_(None)
-            )
-        )
-        sesja = result.scalar_one_or_none()
-        if not sesja:
-            raise HTTPException(status_code=404, detail="Brak aktywnej sesji")
-        resp = format_sesja_response(sesja).dict()
-        return resp
-    except HTTPException:
-        raise
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"Wewnętrzny błąd: {str(e)}")
-# historia sesji, z opcją filtrowania tylko aktywnych, paginacją limit/offset i sortowaniem najnowsze pierwsze
-@router.get("/sesje", response_model=List[SesjaResponse])#
-async def list_sessions(
-    aktywna_only: bool = False,
-    limit: int = 50,
-    offset: int = 0,
-    current_user: Uzytkownik = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
-):
-    q = select(SesjaPolowu).where(SesjaPolowu.uzytkownik_id == current_user.id)
-    if aktywna_only:
-        q = q.where(SesjaPolowu.data_zakonczenia.is_(None))
-    q = q.order_by(SesjaPolowu.data_rozpoczecia.desc()).offset(offset).limit(limit)
-    result = await db.execute(q)
-    return [format_sesja_response(s) for s in result.scalars().all()]
-
 
 
 @router.get("/sesje/aktywna", response_model=SesjaResponse)
@@ -204,13 +161,29 @@ async def get_active_session(
     result = await db.execute(
         select(SesjaPolowu).where(
             SesjaPolowu.uzytkownik_id == current_user.id,
-            SesjaPolowu.data_zakonczenia.is_(None)
+            SesjaPolowu.koniec_czas.is_(None)
         )
     )
     sesja = result.scalar_one_or_none()
     if not sesja:
         raise HTTPException(status_code=404, detail="Brak aktywnej sesji")
     return format_sesja_response(sesja)
+
+
+@router.get("/sesje", response_model=List[SesjaResponse])
+async def list_sessions(
+    aktywna_only: bool = False,
+    limit: int = 50,
+    offset: int = 0,
+    current_user: Uzytkownik = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    q = select(SesjaPolowu).where(SesjaPolowu.uzytkownik_id == current_user.id)
+    if aktywna_only:
+        q = q.where(SesjaPolowu.koniec_czas.is_(None))
+    q = q.order_by(SesjaPolowu.start_czas.desc()).offset(offset).limit(limit)
+    result = await db.execute(q)
+    return [format_sesja_response(s) for s in result.scalars().all()]
 
 
 @router.get("/sesje/{sesja_id}", response_model=SesjaDetailResponse)
@@ -242,9 +215,6 @@ async def get_session_details(
     response_data["nazwa_lowiska"] = lowisko.nazwa if lowisko else None
     response_data["nazwa_uzytkownika"] = current_user.email
     return SesjaDetailResponse(**response_data)
-
-
-
 
 
 @router.patch("/sesje/{sesja_id}", response_model=SesjaResponse)
@@ -293,13 +263,10 @@ async def add_fish(
     current_user: Uzytkownik = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """
-    Dodaj złowioną rybę do sesji.
-    """
     sesja = await db.get(SesjaPolowu, sesja_id)
     if not sesja or sesja.uzytkownik_id != current_user.id:
         raise HTTPException(status_code=404, detail="Sesja nie istnieje lub nie należy do Ciebie")
-    if sesja.data_zakonczenia:
+    if sesja.koniec_czas:
         raise HTTPException(status_code=400, detail="Nie można dodawać ryb do zakończonej sesji")
 
     gatunek = await db.get(Gatunek, request.gatunek_id)
@@ -314,87 +281,37 @@ async def add_fish(
     if request.przyneta_id and not przyneta:
         raise HTTPException(status_code=404, detail="Przynęta nie istnieje")
 
-    # ===== WALIDACJA LIMITÓW =====
-    warnings, wymusi_wypuszczenie = await LimitValidator.validate_catch(
-        db=db,
-        uzytkownik_id=current_user.id,
-        sesja_id=sesja_id,
-        gatunek_id=request.gatunek_id,
-        dlugosc_cm=request.dlugosc_cm,
-        lowisko_id=sesja.lowisko_id,
-    )
-
-    # Jeśli ryba MUSI być wypuszczona, a użytkownik tego nie zaznaczył → odrzuć
-    if wymusi_wypuszczenie and not request.wypuszczona:
-        raise HTTPException(
-            status_code=422,
-            detail={
-                "typ": "wymuszenie_wypuszczenia",
-                "wiadomosc": "Ta ryba musi zostać wypuszczona. Zaznacz 'Wypuszczona' aby potwierdzić.",
-                "ostrzezenia": [
-                    {"typ": w.typ_ostrzezenia, "wiadomosc": w.wiadomosc}
-                    for w in warnings
-                ],
-            }
-        )
-
-    # Ustal powód wypuszczenia na podstawie ostrzeżeń
-    powod_wypuszczenia = None
-    if request.wypuszczona and warnings:
-        powod_wypuszczenia = ", ".join(w.typ_ostrzezenia for w in warnings)
-
     ryba = ZlowionaRyba(
         sesja_id=sesja_id,
         gatunek_id=request.gatunek_id,
-        waga_g=request.waga_g,
+        waga_kg=request.waga_g,
         dlugosc_cm=request.dlugosc_cm,
         metoda_id=request.metoda_id,
         przyneta_id=request.przyneta_id,
         wypuszczona=request.wypuszczona,
-        powod_wypuszczenia=powod_wypuszczenia or request.powod_wypuszczenia,
-        narusza_limit=wymusi_wypuszczenie,
-        powod_naruszenia=", ".join(w.typ_ostrzezenia for w in warnings) if warnings else None,
-        ostrzezenie_wyswietlone=bool(warnings),
-        zdjecie_url=request.zdjecie_url,
         uwagi=request.uwagi,
+        czas_zlowienia=datetime.utcnow(),
     )
     db.add(ryba)
-    await db.flush()  # Pobierz ID bez zamykania sesji
-    
-    # Skopiuj dane PRZED committem
-    ryba_data = {
-        "id": ryba.id,
-        "sesja_id": ryba.sesja_id,
-        "gatunek_id": ryba.gatunek_id,
-        "waga_g": ryba.waga_g,
-        "dlugosc_cm": ryba.dlugosc_cm,
-        "metoda_id": ryba.metoda_id,
-        "przyneta_id": ryba.przyneta_id,
-        "wypuszczona": ryba.wypuszczona,
-        "powod_wypuszczenia": ryba.powod_wypuszczenia,
-        "narusza_limit": ryba.narusza_limit,
-        "powod_naruszenia": ryba.powod_naruszenia,
-        "ostrzezenie_wyswietlone": ryba.ostrzezenie_wyswietlone,
-        "zdjecie_url": ryba.zdjecie_url,
-        "uwagi": ryba.uwagi,
-        "czas_zlowienia": ryba.czas_zlowienia,
-        "nazwa_gatunku": gatunek.nazwa_polska if gatunek else None,
-        "nazwa_metody": metoda.nazwa if metoda else None,
-        "nazwa_przynety": przyneta.nazwa if przyneta else None,
-    }
-    
     await db.commit()
+    await db.refresh(ryba)
 
-    # Aktualizuj historię limitów (nieblokująco)
-    await LimitValidator.update_history(
-        db=db,
-        uzytkownik_id=current_user.id,
-        gatunek_id=request.gatunek_id,
-        lowisko_id=sesja.lowisko_id,
-        wypuszczona=request.wypuszczona,
+    return ZlowionaRybaResponse(
+        id=ryba.id,
+        sesja_id=ryba.sesja_id,
+        gatunek_id=ryba.gatunek_id,
+        waga_g=ryba.waga_kg,
+        dlugosc_cm=ryba.dlugosc_cm,
+        metoda_id=ryba.metoda_id,
+        przyneta_id=ryba.przyneta_id,
+        wypuszczona=ryba.wypuszczona,
+        zdjecie_url=None,
+        uwagi=ryba.uwagi,
+        czas_zlowienia=ryba.czas_zlowienia,
+        nazwa_gatunku=gatunek.nazwa_polska,
+        nazwa_metody=metoda.nazwa if metoda else None,
+        nazwa_przynety=przyneta.nazwa if przyneta else None,
     )
-
-    return ryba_data
 
 
 @router.get("/sesje/{sesja_id}/ryby", response_model=List[ZlowionaRybaResponse])
@@ -446,11 +363,7 @@ async def update_fish(
     metoda = await db.get(MetodaPolowu, ryba.metoda_id) if ryba.metoda_id else None
     przyneta = await db.get(Przyneta, ryba.przyneta_id) if ryba.przyneta_id else None
 
-    # Pobierz rybę ponownie z bazy
-    ryba_refreshed = await db.get(ZlowionaRyba, ryba.id)
-    await db.refresh(ryba_refreshed)
-
-    return format_ryba_response(ryba_refreshed, gatunek, metoda, przyneta).dict()
+    return format_ryba_response(ryba, gatunek, metoda, przyneta).dict()
 
 
 @router.delete("/ryby/{ryba_id}", status_code=status.HTTP_204_NO_CONTENT)

@@ -1,13 +1,10 @@
 // Plik: src/App.js
-// Główny komponent aplikacji z routingiem.
-
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import Navbar from './components/Navbar';          // IMPORT DOMYŚLNY
-import PrivateRoute from './components/PrivateRoute'; // IMPORT DOMYŚLNY
+import Navbar from './components/Navbar';
+import PrivateRoute from './components/PrivateRoute';
 
-// Strony (importy domyślne)
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
@@ -26,9 +23,6 @@ import NewStation from './pages/NewStation';
 import StationDetail from './pages/StationDetail';
 import NewVisit from './pages/NewVisit';
 import VisitHistory from './pages/VisitHistory';
-
-
-
 
 function AppRoutes() {
     const { accessToken } = useAuth();
@@ -61,7 +55,7 @@ function App() {
         <BrowserRouter>
             <AuthProvider>
                 <Navbar />
-                <div className="container mt-3">
+                <div className="container mt-4">
                     <AppRoutes />
                 </div>
             </AuthProvider>
