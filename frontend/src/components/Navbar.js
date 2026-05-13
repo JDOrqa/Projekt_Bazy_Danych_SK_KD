@@ -30,7 +30,6 @@ function Navbar() {
             <li className="nav-item"><Link className="nav-link" to="/iot">Stacje IoT</Link></li>
             <li className="nav-item"><Link className="nav-link" to="/new-catch">Nowy połów</Link></li>
             <li className="nav-item"><Link className="nav-link" to="/catches">Historia</Link></li>
-            <li className="nav-item"><Link className="nav-link" to="/upload-image">Dodaj zdjęcie</Link></li>
             <li className="nav-item"><Link className="nav-link" to="/gatunki">Gatunki</Link></li>
             <li className="nav-item"><Link className="nav-link" to="/userinfo">Mój profil</Link></li>
             {(user.roles?.includes('Admin') || user.roles?.includes('Właściciel')) && (

@@ -16,7 +16,6 @@ import LakeDetail from './pages/LakeDetail';
 import LakeEdit from './pages/LakeEdit';
 import NewCatch from './pages/NewCatch';
 import CatchHistory from './pages/CatchHistory';
-import UploadImage from './pages/UploadImage';
 import AdminPanel from './pages/AdminPanel';
 import GatunkiList from './pages/GatunkiList';
 import Userinfo from './pages/Userinfo';  
@@ -44,7 +43,6 @@ function AppRoutes() {
             <Route path="/lakes/:id/edit" element={<PrivateRoute><LakeEdit /></PrivateRoute>} />
             <Route path="/new-catch" element={<PrivateRoute><NewCatch /></PrivateRoute>} />
             <Route path="/catches" element={<PrivateRoute><CatchHistory /></PrivateRoute>} />
-            <Route path="/upload-image" element={<PrivateRoute><UploadImage /></PrivateRoute>} />
             <Route path="/admin/*" element={<PrivateRoute><AdminPanel /></PrivateRoute>} />
             <Route path="/gatunki" element={<PrivateRoute><GatunkiList /></PrivateRoute>} />
             <Route path="/userinfo" element={<PrivateRoute><Userinfo /></PrivateRoute>} /> 
