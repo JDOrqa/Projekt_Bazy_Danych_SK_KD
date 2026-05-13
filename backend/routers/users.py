@@ -90,7 +90,7 @@ async def get_dashboard_stats(
 ):
     """
     Dashboard użytkownika – statystyki:
-    - liczba sesji połowów
+    - liczba sesji połowówg
     - liczba złowionych ryb
     - ulubione łowisko (najczęściej odwiedzane)
     - ostatnie 5 połowów
