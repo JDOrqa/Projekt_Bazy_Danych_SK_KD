@@ -84,6 +84,14 @@ function StationReadings() {
         fetchReadings();
     }, [fetchReadings]);
 
+    const [canCreate, setCanCreate] = useState(false);
+
+    useEffect(() => {
+        const roles = user?.roles || [];
+        setCanCreate(roles.includes('Właściciel') || roles.includes('Admin'));
+        fetchStations();
+    }, [user, fetchStations]);
+
     const handleFilterChange = (e) => {
         const { name, value } = e.target;
         setFilters((prev) => {
@@ -175,7 +183,7 @@ function StationReadings() {
                 </div>
             </div>
 
-            {user && (
+            {canCreate && (
                 <div className="mb-4">
                     <Link to="/iot/new" className="btn btn-success">Dodaj stację</Link>
                 </div>
