@@ -32,14 +32,6 @@ function ZarybieniePage() {
   const [pokazFormularz, setPokazFormularz] = useState(false);
   const [filtrLowisko, setFiltrLowisko] = useState('');
 
-  const mozeZarzadzac = user?.roles?.includes('Admin') || user?.roles?.includes('Właściciel');
-
-  useEffect(() => {
-    if (!mozeZarzadzac) {
-      navigate('/dashboard');
-    }
-  }, [mozeZarzadzac, navigate]);
-
   const pobierzDane = useCallback(async () => {
     setLoading(true);
     try {
@@ -78,6 +70,14 @@ function ZarybieniePage() {
     setEdytowanyId(null);
     setPokazFormularz(false);
   };
+
+  const [canCreate, setCanCreate] = useState(false);
+
+  useEffect(() => {
+      const roles = user?.roles || [];
+      setCanCreate(roles.includes('Właściciel') || roles.includes('Admin'));
+      pobierzDane();
+  }, [user, pobierzDane]);
 
   const otworzDodawanie = () => {
     setFormularz({
@@ -172,7 +172,7 @@ function ZarybieniePage() {
     <div className="container mt-4">
       <div className="d-flex justify-content-between align-items-center mb-3">
         <h2>Zarybienia</h2>
-        {!pokazFormularz && (
+        {!pokazFormularz && canCreate && (
           <button className="btn btn-success" onClick={otworzDodawanie}>
             + Dodaj zarybienie
           </button>
@@ -251,16 +251,16 @@ function ZarybieniePage() {
                 </div>
                 <div className="col-md-3">
                   <label className="form-label">Koszt (zł)</label>
-                  <input
-                    type="number"
-                    className="form-control"
-                    name="koszt"
-                    value={formularz.koszt}
-                    onChange={handleZmiana}
-                    min="0"
-                    step="0.01"
-                    placeholder="np. 1200.00"
-                  />
+                    <input
+                      type="number"
+                      className="form-control"
+                      name="koszt"
+                      value={formularz.koszt}
+                      onChange={handleZmiana}
+                      min="0"
+                      step="0.01"
+                      placeholder="np. 1200.00"
+                    />
                 </div>
                 <div className="col-12">
                   <label className="form-label">Uwagi</label>
@@ -352,18 +352,22 @@ function ZarybieniePage() {
                     }
                   </td>
                   <td>
-                    <button
-                      className="btn btn-sm btn-warning me-1"
-                      onClick={() => otworzEdycje(z)}
-                    >
-                      Edytuj
-                    </button>
-                    <button
-                      className="btn btn-sm btn-danger"
-                      onClick={() => handleUsun(z.id)}
-                    >
-                      Usuń
-                    </button>
+                    {canCreate && (
+                      <button
+                        className="btn btn-sm btn-warning me-1"
+                        onClick={() => otworzEdycje(z)}
+                      >
+                        Edytuj
+                      </button>
+                    )}
+                    {canCreate && (
+                      <button
+                        className="btn btn-sm btn-danger"
+                        onClick={() => handleUsun(z.id)}
+                      >
+                        Usuń
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}

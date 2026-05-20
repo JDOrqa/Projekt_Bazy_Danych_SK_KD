@@ -32,12 +32,8 @@ function Navbar() {
             <li className="nav-item"><Link className="nav-link" to="/catches">Historia</Link></li>
             <li className="nav-item"><Link className="nav-link" to="/gatunki">Gatunki</Link></li>
             <li className="nav-item"><Link className="nav-link" to="/userinfo">Mój profil</Link></li>
-            {(user.roles?.includes('Admin') || user.roles?.includes('Właściciel')) && (
-              <>
-                <li className="nav-item"><Link className="nav-link" to="/limits">Limity</Link></li>
-                <li className="nav-item"><Link className="nav-link" to="/zarybienia">Zarybienia</Link></li>
-              </>
-            )}
+            <li className="nav-item"><Link className="nav-link" to="/limits">Limity</Link></li>
+            <li className="nav-item"><Link className="nav-link" to="/zarybienia">Zarybienia</Link></li>
             {user.roles?.includes('Admin') && (
               <li className="nav-item"><Link className="nav-link" to="/admin">Admin</Link></li>
             )}

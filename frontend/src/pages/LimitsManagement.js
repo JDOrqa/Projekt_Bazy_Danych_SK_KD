@@ -35,15 +35,6 @@ function LimitsManagement() {
   const [pokazFormularz, setPokazFormularz] = useState(false);
   const [filtrLowisko, setFiltrLowisko] = useState('');
 
-  // Sprawdzenie uprawnień
-  const mozeZarzadzac = user?.roles?.includes('Admin') || user?.roles?.includes('Właściciel');
-
-  useEffect(() => {
-    if (!mozeZarzadzac) {
-      navigate('/dashboard');
-    }
-  }, [mozeZarzadzac, navigate]);
-
   const pobierzDane = useCallback(async () => {
     setLoading(true);
     try {
@@ -83,6 +74,14 @@ function LimitsManagement() {
     setPokazFormularz(false);
   };
 
+  const [canCreate, setCanCreate] = useState(false);
+
+  useEffect(() => {
+      const roles = user?.roles || [];
+      setCanCreate(roles.includes('Właściciel') || roles.includes('Admin'));
+      pobierzDane();
+  }, [user, pobierzDane]);
+  
   const otworzDodawanie = () => {
     setFormularz(PUSTY_FORMULARZ);
     setEdytowanyId(null);
@@ -165,7 +164,7 @@ function LimitsManagement() {
     <div className="container mt-4">
       <div className="d-flex justify-content-between align-items-center mb-3">
         <h2>Limity połowowe</h2>
-        {!pokazFormularz && (
+        {!pokazFormularz && canCreate && (
           <button className="btn btn-success" onClick={otworzDodawanie}>
             + Dodaj limit
           </button>
@@ -375,18 +374,22 @@ function LimitsManagement() {
                     }
                   </td>
                   <td>
-                    <button
-                      className="btn btn-sm btn-warning me-1"
-                      onClick={() => otworzEdycje(limit)}
-                    >
-                      Edytuj
-                    </button>
-                    <button
-                      className="btn btn-sm btn-danger"
-                      onClick={() => handleUsun(limit.id)}
-                    >
-                      Usuń
-                    </button>
+                    {canCreate && (
+                      <button
+                        className="btn btn-sm btn-warning me-1"
+                        onClick={() => otworzEdycje(limit)}
+                      >
+                        Edytuj
+                      </button>
+                    )}
+                    {canCreate && (
+                      <button
+                        className="btn btn-sm btn-danger"
+                        onClick={() => handleUsun(limit.id)}
+                      >
+                        Usuń
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
