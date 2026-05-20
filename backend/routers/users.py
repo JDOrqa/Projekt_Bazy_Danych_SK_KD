@@ -125,7 +125,7 @@ async def get_dashboard_stats(
     recent_catches = [
         {
             "gatunek": row[1],
-            "waga_kg": row[0].waga_kg if hasattr(row[0], 'waga_kg') else None,
+            "waga_kg": row[0].waga_kg,
             "data": row[2]
         }
         for row in recent_rows

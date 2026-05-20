@@ -127,11 +127,11 @@ async def seed_database(db: AsyncSession):
         
         # 4. Gatunki
         gatunki = [
-            ("Szczupak", "Esox lucius", "https://upload.wikimedia.org/wikipedia/commons/0/03/HandlingBigPike.JPG", "Drapieżnik, wymiar ochronny 50 cm"),
-            ("Okoń", "Perca fluviatilis", "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e7/Perca_fluviatilis_2008_G1.jpg/640px-Perca_fluviatilis_2008_G1.jp", "Brak wymiaru, limit 20 szt."),
-            ("Karp", "Cyprinus carpio", "https://upload.wikimedia.org/wikipedia/commons/thumb/2/2f/Cyprinus_carpio-King_Carp.jpg/640px-Cyprinus_carpio-King_Carp.jpg", "Wymiar 40 cm"),
-            ("Leszcz", "Abramis brama", "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d2/Abramis_brama_by_RpM.JPG/640px-Abramis_brama_by_RpM.JPG", "Wymiar 25 cm"),
-            ("Sandacz", "Sander lucioperca", "https://upload.wikimedia.org/wikipedia/commons/thumb/2/28/Hal_-_Sander_lucioperca_-_1.jpg/640px-Hal_-_Sander_lucioperca_-_1.jpg", "Wymiar 45 cm"),
+            ("Szczupak", "Esox lucius", "https://images.pexels.com/photos/17213802/pexels-photo-17213802.jpeg", "Drapieżnik, wymiar ochronny 50 cm"),
+            ("Okoń", "Perca fluviatilis", "https://images.pexels.com/photos/9356834/pexels-photo-9356834.jpeg", "Brak wymiaru, limit 20 szt."),
+            ("Karp", "Cyprinus carpio", "https://images.pexels.com/photos/10462564/pexels-photo-10462564.jpeg", "Wymiar 40 cm"),
+            ("Leszcz", "Abramis brama", "https://images.pexels.com/photos/16659375/pexels-photo-16659375.jpeg", "Wymiar 25 cm"),
+            ("Sandacz", "Sander lucioperca", "https://images.pexels.com/photos/12167832/pexels-photo-12167832.jpeg", "Wymiar 45 cm"),
         ]
         for nazwa, lacina, url, opis in gatunki:
             result = await db.execute(select(Gatunek).where(Gatunek.nazwa_polska == nazwa))
