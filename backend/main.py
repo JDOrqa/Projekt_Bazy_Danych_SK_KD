@@ -21,7 +21,7 @@ from models.przyneta import Przyneta
 from models.stacja_pomiarowa import StacjaPomiarowa
 from models.odczyt_srodowiskowy import OdczytSrodowiskowy
 from utils.security import get_password_hash
-
+from routers import measure
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -389,6 +389,7 @@ app.include_router(iot.router, prefix="/api/iot", tags=["IoT"])
 app.include_router(limits.router, prefix="/api/limits", tags=["limity"])
 app.include_router(admin.router, prefix="/api/admin", tags=["administracja"])
 app.include_router(zarybienia.router, prefix="/api/zarybienia", tags=["zarybienia"])
+app.include_router(measure.router, prefix="/api/measure", tags=["pomiar"])
 
 @app.get("/")
 async def root():
