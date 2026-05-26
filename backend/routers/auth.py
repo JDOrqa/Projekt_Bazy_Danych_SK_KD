@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from pydantic import BaseModel, EmailStr, Field, validator 
 from datetime import timedelta
 import secrets
 
@@ -24,8 +25,9 @@ from dependencies.auth import get_current_user
 
 router = APIRouter()
 
-# Prosta pamięć dla tokenów weryfikacyjnych (w produkcji baza)
+# Prosta pamięć dla tokenów weryfikacyjnych 
 verification_tokens = {}  # {user_id: token}
+
 
 def generate_verification_token(user_id: int) -> str:
     #Generuje losowy token dla weryfikacji email."""
@@ -55,7 +57,7 @@ async def register_user(
    # - Przypisuje domyślną rolę 'Wędkarz'.
    # - Wysyła link weryfikacyjny (email w tle).
     
-    # 1. Sprawdź czy użytkownik o podanym emailu już istnieje (miękkie usunięcie pomijamy)
+    # 1. Sprawdź czy użytkownik o podanym emailu już istnieje 
     existing = await get_user_by_email(db, user_data.email)
     if existing:
         raise HTTPException(status_code=400, detail="Email już zarejestrowany")
@@ -63,7 +65,7 @@ async def register_user(
     # 2. Hash hasła
     hashed = get_password_hash(user_data.password)
     
-    # 3. Utwórz nowego użytkownika (status = nieaktywny)
+    # 3. Utwórz nowego użytkownika 
     new_user = Uzytkownik(
         email=user_data.email,
         haslo_hash=hashed,
@@ -75,7 +77,7 @@ async def register_user(
     db.add(new_user)
     await db.flush()  # aby uzyskać new_user.id
     
-    # 4. Przypisz domyślną rolę "Wędkarz" (jeśli istnieje)
+    # 4. Przypisz domyślną rolę "Wędkarz" 
     result = await db.execute(select(Rola).where(Rola.nazwa == "Wędkarz"))
     wedkarz_role = result.scalar_one_or_none()
     if wedkarz_role:
@@ -154,12 +156,14 @@ async def login(
         "refresh_token": refresh_token,
         "token_type": "bearer"
     }
-
+class RefreshTokenRequest(BaseModel):
+    refresh_token: str
 @router.post("/refresh", response_model=Token)
 async def refresh_access_token(
-    refresh_token: str,
+    request: RefreshTokenRequest,
     db: AsyncSession = Depends(get_db)
 ):
+    refresh_token = request.refresh_token
     
    # Odświeżenie access_token przy użyciu ważnego refresh_token.
    # Rotacja: generuje nowy access_token oraz nowy refresh_token (unieważnia stary).

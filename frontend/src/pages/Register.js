@@ -1,6 +1,6 @@
 // Plik: pages/Register.js
 // Formularz rejestracji – wysyła dane do /api/auth/register
-// Po sukcesie wyświetla komunikat o konieczności potwierdzenia email.
+
 
 import React, { useState } from 'react';
 import axios from 'axios';
@@ -21,7 +21,7 @@ function Register() {
   setError('');
   setMessage('');
 
-  // Walidacja hasła
+  
   if (form.password.length < 8) {
     setError('Hasło musi mieć co najmniej 8 znaków.');
     return;

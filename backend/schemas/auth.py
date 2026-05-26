@@ -21,15 +21,15 @@ class UserCreate(BaseModel):
             raise ValueError('Hasło musi zawierać przynajmniej jedną literę')
         return v
 
-class LoginRequest(BaseModel):
+class LoginRequest(BaseModel): # Model danych do logowania.
     email: EmailStr
     password: str
 
-class Token(BaseModel):
-    access_token: str
+class Token(BaseModel):  # Model odpowiedzi z tokenami po zalogowaniu lub odświeżeniu.
+    access_token: str 
     refresh_token: str
     token_type: str = "bearer"
 
-class EmailVerifyRequest(BaseModel):
+class EmailVerifyRequest(BaseModel): # Model danych do weryfikacji emaila.
     user_id: int
     token: str

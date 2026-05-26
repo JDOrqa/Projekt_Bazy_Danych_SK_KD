@@ -6,12 +6,11 @@ import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 
 function GatunkiList() {
-    const [gatunki, setGatunki] = useState([]);
-    const [editMode, setEditMode] = useState(null);
-    const [form, setForm] = useState({ nazwa_polska: '', nazwa_lacina: '', url_zdjecia: '', opis: '' });
+    const [gatunki, setGatunki] = useState([]); // Przechowuje listę gatunków w stanie
+    const [editMode, setEditMode] = useState(null); // Przechowuje ID gatunku, który jest aktualnie edytowany. Jeśli null, to żaden gatunek nie jest w trybie edycji. Jeśli 'new', to dodajemy nowy gatunek.
+    const [form, setForm] = useState({ nazwa_polska: '', nazwa_lacina: '', url_zdjecia: '', opis: '' }); 
     const { accessToken, user } = useAuth();
-    const canEdit = user?.roles?.some(r => ['Admin', 'Moderator'].includes(r));
-
+    const canEdit = user?.roles?.some(r => ['Admin', 'Moderator'].includes(r)); 
     const fetchGatunki = useCallback(async () => {
         const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/admin/gatunki`, {
             headers: { Authorization: `Bearer ${accessToken}` }
@@ -26,12 +25,12 @@ function GatunkiList() {
   const handleSubmit = async (e, id = null) => {
     e.preventDefault();
     if (id) {
-      await axios.put(`${process.env.REACT_APP_API_URL}/api/admin/gatunki/${id}`, form, {
+        await axios.put(`${process.env.REACT_APP_API_URL}/api/admin/gatunki/${id}`, form, { // Jeśli id jest podane, to aktualizujemy istniejący gatunek axios.put, w przeciwnym razie tworzymy nowy axios.post
         headers: { Authorization: `Bearer ${accessToken}` }
       });
     } else {
-      await axios.post(`${process.env.REACT_APP_API_URL}/api/admin/gatunki`, form, {
-        headers: { Authorization: `Bearer ${accessToken}` }
+      await axios.post(`${process.env.REACT_APP_API_URL}/api/admin/gatunki`, form, {   
+        headers: { Authorization: `Bearer ${accessToken}` }  
       });
     }
     setEditMode(null);

@@ -22,16 +22,9 @@ class SesjaUpdateRequest(BaseModel):
 class SesjaResponse(BaseModel):
     id: int
     uzytkownik_id: int
-    lowisko_id: int
-    data_rozpoczecia: datetime
-    data_zakonczenia: Optional[datetime]
-    start_gps_lat: Optional[float]
-    start_gps_lon: Optional[float]
-    koniec_gps_lat: Optional[float]
-    koniec_gps_lon: Optional[float]
-    uwagi: Optional[str]
     created_at: datetime
-    
+    updated_at: datetime
+
     class Config:
         from_attributes = True
 

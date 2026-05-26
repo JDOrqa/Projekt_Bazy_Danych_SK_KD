@@ -183,10 +183,10 @@ async def update_gatunek(
 ):
     gatunek = await db.get(Gatunek, gatunek_id)
     if not gatunek or gatunek.deleted_at:
-        raise HTTPException(status_code=404, detail="Gatunek nie znaleziony")
-    for key, value in data.dict(exclude_unset=True).items():
+        raise HTTPException(status_code=404, detail="Gatunek nie znaleziony") 
+    for key, value in data.dict(exclude_unset=True).items(): # exclude_unset=True pozwala aktualizować tylko podane pola
         setattr(gatunek, key, value)
-    await db.commit()
+    await db.commit() 
     await db.refresh(gatunek)
     await log_audit(db, current_user.id, "GATUNKI", gatunek_id, "UPDATE", None, data.dict())
     return gatunek

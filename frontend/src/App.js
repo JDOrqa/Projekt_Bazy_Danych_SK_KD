@@ -1,13 +1,10 @@
 // Plik: src/App.js
-// Główny komponent aplikacji z routingiem.
-
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import Navbar from './components/Navbar';          // IMPORT DOMYŚLNY
-import PrivateRoute from './components/PrivateRoute'; // IMPORT DOMYŚLNY
+import Navbar from './components/Navbar';
+import PrivateRoute from './components/PrivateRoute';
 
-// Strony (importy domyślne)
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
@@ -16,11 +13,16 @@ import LakeDetail from './pages/LakeDetail';
 import LakeEdit from './pages/LakeEdit';
 import NewCatch from './pages/NewCatch';
 import CatchHistory from './pages/CatchHistory';
-import UploadImage from './pages/UploadImage';
 import AdminPanel from './pages/AdminPanel';
 import GatunkiList from './pages/GatunkiList';
 import Userinfo from './pages/Userinfo';  
-
+import LimitsManagement from './pages/LimitsManagement';
+import ZarybieniePage from './pages/ZarybieniePage';
+import StationReadings from './pages/StationReadings';
+import NewStation from './pages/NewStation';
+import StationDetail from './pages/StationDetail';
+import NewVisit from './pages/NewVisit';
+import VisitHistory from './pages/VisitHistory';
 
 function AppRoutes() {
     const { accessToken } = useAuth();
@@ -35,10 +37,14 @@ function AppRoutes() {
             <Route path="/lakes/:id/edit" element={<PrivateRoute><LakeEdit /></PrivateRoute>} />
             <Route path="/new-catch" element={<PrivateRoute><NewCatch /></PrivateRoute>} />
             <Route path="/catches" element={<PrivateRoute><CatchHistory /></PrivateRoute>} />
-            <Route path="/upload-image" element={<PrivateRoute><UploadImage /></PrivateRoute>} />
             <Route path="/admin/*" element={<PrivateRoute><AdminPanel /></PrivateRoute>} />
             <Route path="/gatunki" element={<PrivateRoute><GatunkiList /></PrivateRoute>} />
             <Route path="/userinfo" element={<PrivateRoute><Userinfo /></PrivateRoute>} /> 
+            <Route path="/limits" element={<PrivateRoute><LimitsManagement /></PrivateRoute>} />
+            <Route path="/zarybienia" element={<PrivateRoute><ZarybieniePage /></PrivateRoute>} />
+            <Route path="/iot" element={<PrivateRoute><StationReadings /></PrivateRoute>} />
+            <Route path="/iot/new" element={<PrivateRoute><NewStation /></PrivateRoute>} />
+            <Route path="/iot/stations/:id" element={<PrivateRoute><StationDetail /></PrivateRoute>} />
             <Route path="*" element={<Navigate to="/dashboard" />} />
         </Routes>
     );
@@ -49,7 +55,7 @@ function App() {
         <BrowserRouter>
             <AuthProvider>
                 <Navbar />
-                <div className="container mt-3">
+                <div className="container mt-4">
                     <AppRoutes />
                 </div>
             </AuthProvider>

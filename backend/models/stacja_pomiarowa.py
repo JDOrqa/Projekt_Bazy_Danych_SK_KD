@@ -14,7 +14,7 @@ class StacjaPomiarowa(Base):
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     lowisko_id = Column(BigInteger, ForeignKey("LOWISKA.id"), nullable=False)
     nazwa = Column(String(200), nullable=False)
-    lokalizacja = Column(Geography('POINT', srid=4326))  # współrzędne GPS
+    lokalizacja = Column(Geography('POINT', srid=4326), nullable=True)  # współrzędne GPS
     typ_czujnikow = Column(JSONB)                        # lista czujników: temp, tlen, pH
     last_seen = Column(TIMESTAMP)
     created_at = Column(TIMESTAMP, server_default=func.now())

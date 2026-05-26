@@ -12,7 +12,7 @@ function Dashboard() {
 
   useEffect(() => {
     const fetchDashboard = async () => {
-      const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/users/dashboard`, {
+        const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/users/dashboard`, {
         headers: { Authorization: `Bearer ${accessToken}` }
       });
       setStats(res.data);
@@ -24,31 +24,31 @@ function Dashboard() {
     <div className="container mt-4">
       <h2>Dashboard</h2>
       <div className="row">
-        <div className="col-md-4">
-          <div className="card text-white bg-primary mb-3">
-            <div className="card-header">Sesje połowów</div>
-            <div className="card-body"><h1>{stats.liczba_sesji}</h1></div>
-          </div>
+      <div className="col-md-4">
+       <div className="card text-white bg-primary mb-3">
+       <div className="card-header">Sesje połowów</div>
+       <div className="card-body"><h1>{stats.liczba_sesji}</h1></div>
+        </div>
         </div>
         <div className="col-md-4">
-          <div className="card text-white bg-success mb-3">
-            <div className="card-header">Złowione ryby</div>
-            <div className="card-body"><h1>{stats.liczba_zlowionych_ryb}</h1></div>
-          </div>
+        <div className="card text-white bg-success mb-3">
+        <div className="card-header">Złowione ryby</div>
+         <div className="card-body"><h1>{stats.liczba_zlowionych_ryb}</h1></div>
+         </div>
         </div>
         <div className="col-md-4">
-          <div className="card text-white bg-info mb-3">
-            <div className="card-header">Ulubione łowisko</div>
-            <div className="card-body">{stats.ulubione_lowisko || 'Brak'}</div>
-          </div>
+        <div className="card text-white bg-info mb-3">
+         <div className="card-header">Ulubione łowisko</div>
+         <div className="card-body">{stats.ulubione_lowisko || 'Brak'}</div>
         </div>
+       </div>
       </div>
       <h3>Ostatnie połowy</h3>
       <table className="table">
-        <thead><tr><th>Gatunek</th><th>Waga (kg)</th><th>Data</th></tr></thead>
+        <thead><tr><th>Gatunek</th><th>Waga (g)</th><th>Data</th></tr></thead>
         <tbody>
           {stats.ostatnie_polowy.map((p, idx) => (
-            <tr key={idx}><td>{p.gatunek}</td><td>{p.waga_kg}</td><td>{new Date(p.data).toLocaleString()}</td></tr>
+              <tr key={idx}><td>{p.gatunek}</td><td>{p.waga_kg}</td><td>{new Date(p.data).toLocaleString()}</td></tr>
           ))}
         </tbody>
       </table>

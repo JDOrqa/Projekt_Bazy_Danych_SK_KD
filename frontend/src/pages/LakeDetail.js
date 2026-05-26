@@ -10,9 +10,9 @@ import { useAuth } from '../context/AuthContext';
 import MapComponent from '../components/MapComponent';
 
 function LakeDetail() {
-    const { id } = useParams();          // Pobranie ID łowiska z adresu URL
+    const { id } = useParams();         
     const navigate = useNavigate();
-    const { accessToken, user } = useAuth();  // Token i dane użytkownika z kontekstu
+    const { accessToken, user } = useAuth();  
     const [lake, setLake] = useState(null);   // Przechowuje dane łowiska
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
