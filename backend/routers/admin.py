@@ -1,65 +1,74 @@
 # Plik: routers/admin.py
-# Endpointy dla administratora:
-# - zarządzanie użytkownikami (blokada, zmiana roli, usuwanie)
-# - zarządzanie rolami (CRUD)
-# - zarządzanie uprawnieniami
-# - zarządzanie gatunkami (CRUD) – ale to może być osobny router
+# Panel administratora – zarządzanie użytkownikami, rolami, uprawnieniami, gatunkami.
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, delete, func
+from sqlalchemy import text, delete, func
+from typing import List, Optional
 from database import get_db
-from schemas.user import UserAdminUpdate, UserResponse
-from schemas.role import RoleCreate, RoleResponse, RoleUpdate
-from schemas.gatunek import GatunekCreate, GatunekResponse, GatunekUpdate
+from dependencies.auth import get_current_user, require_permission
 from models.uzytkownik import Uzytkownik
 from models.rola import Rola, UzytkownikRola
+from models.uprawnienie import Uprawnienie, RolaUprawnienie
 from models.gatunek import Gatunek
-from dependencies.auth import get_current_user, require_permission
+from schemas.user import UserResponse
+from schemas.role import RoleCreate, RoleResponse, RoleUpdate
+from schemas.gatunek import GatunekCreate, GatunekResponse, GatunekUpdate
 from services.audit_log import log_audit
 
 router = APIRouter()
 
-async def get_user_roles(user_id: int, db: AsyncSession) -> list[str]:
-    result = await db.execute(
-        select(Rola.nazwa)
-        .join(UzytkownikRola, UzytkownikRola.rola_id == Rola.id)
-        .where(UzytkownikRola.uzytkownik_id == user_id)
-    )
-    return [row[0] for row in result.all()]
+# ===================== ZARZĄDZANIE UŻYTKOWNIKAMI =====================
 
-# --- Zarządzanie użytkownikami (tylko Admin) ---
-@router.get("/users", response_model=list[UserResponse])
+@router.get("/users", response_model=List[UserResponse])
 async def list_users(
     skip: int = 0,
     limit: int = 100,
     current_user: Uzytkownik = Depends(require_permission("admin.users.view")),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db) 
+
+    # Funkcja COALESCE w SQL przyjmuje listę wartości lub kolumn i zwraca pierwszą wartość, która nie jest pusta (NULL).
 ):
-    """Lista wszystkich użytkowników (Admin)."""
-    result = await db.execute(select(Uzytkownik).offset(skip).limit(limit))
-    users = result.scalars().all()
+    """Lista użytkowników z ich rolami (raw query z json_agg to funkcja agregująca, która pobiera wartości z wielu wierszy bazy danych i łączy je w jedną tablicę JSON)."""
+    sql = """
+        SELECT 
+            u."id", u."email", u."imie", u."nazwisko", u."nr_licencji", u."status",
+            COALESCE(
+                (SELECT json_agg(r."nazwa") 
+                 FROM "UZYTKOWNIK_ROLE" ur 
+                 JOIN "ROLE" r ON ur."rola_id" = r."id" 
+                 WHERE ur."uzytkownik_id" = u."id"),  
+                '[]'::json
+            ) as roles
+        FROM "UZYTKOWNICY" u
+        WHERE u."deleted_at" IS NULL
+        ORDER BY u."id"
+        LIMIT :limit OFFSET :skip
+    """
+    result = await db.execute(text(sql), {"limit": limit, "skip": skip})
+    rows = result.mappings().all()
+    
     response = []
-    for user in users:
+    for row in rows:
         response.append(UserResponse(
-            id=user.id,
-            email=user.email,
-            imie=user.imie,
-            nazwisko=user.nazwisko,
-            nr_licencji=user.nr_licencji,
-            status=user.status,
-            roles=await get_user_roles(user.id, db)
+            id=row["id"],
+            email=row["email"],
+            imie=row["imie"],
+            nazwisko=row["nazwisko"],
+            nr_licencji=row["nr_licencji"],
+            status=row["status"],
+            roles=row["roles"] if row["roles"] else []
         ))
     return response
 
 @router.patch("/users/{user_id}/status")
 async def change_user_status(
     user_id: int,
-    status_data: dict,  # {"status": "aktywny"} lub "zablokowany"
+    status_data: dict,
     current_user: Uzytkownik = Depends(require_permission("admin.users.edit")),
     db: AsyncSession = Depends(get_db)
 ):
-    """Zmiana statusu użytkownika (aktywny/zablokowany)."""
+   
     user = await db.get(Uzytkownik, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="Użytkownik nie istnieje")
@@ -74,31 +83,29 @@ async def change_user_status(
 @router.post("/users/{user_id}/roles")
 async def assign_role_to_user(
     user_id: int,
-    role_id: int,
+    role_id: int = Query(...),
     current_user: Uzytkownik = Depends(require_permission("admin.roles.assign")),
     db: AsyncSession = Depends(get_db)
 ):
-    """Przypisanie roli użytkownikowi. Użytkownik może mieć maksymalnie jedną rolę."""
+    # ORM (można zostawić)
     user = await db.get(Uzytkownik, user_id)
     role = await db.get(Rola, role_id)
     if not user or not role:
         raise HTTPException(status_code=404, detail="Użytkownik lub rola nie istnieje")
-
-    existing_roles_result = await db.execute(
-        select(UzytkownikRola).where(UzytkownikRola.uzytkownik_id == user_id)
-    )
-    existing_roles = existing_roles_result.scalars().all()
-
-    if any(existing.rola_id == role_id for existing in existing_roles):
+    # Sprawdzenie czy już ma (raw query)
+    check_sql = text("""
+        SELECT 1 FROM "UZYTKOWNIK_ROLE" 
+        WHERE "uzytkownik_id" = :uid AND "rola_id" = :rid
+    """)
+    exists = await db.execute(check_sql, {"uid": user_id, "rid": role_id})
+    if exists.first():
         raise HTTPException(status_code=400, detail="Użytkownik już ma tę rolę")
-
-    if existing_roles:
-        await db.execute(
-            delete(UzytkownikRola).where(UzytkownikRola.uzytkownik_id == user_id)
-        )
-
-    user_role = UzytkownikRola(uzytkownik_id=user_id, rola_id=role_id)
-    db.add(user_role)
+    # Insert raw
+    insert_sql = text("""
+        INSERT INTO "UZYTKOWNIK_ROLE" ("uzytkownik_id", "rola_id")
+        VALUES (:uid, :rid)
+    """)
+    await db.execute(insert_sql, {"uid": user_id, "rid": role_id})
     await db.commit()
     await log_audit(db, current_user.id, "UZYTKOWNIK_ROLE", 0, "INSERT", None, {"user_id": user_id, "role_id": role_id})
     return {"message": "Rola przypisana"}
@@ -110,24 +117,30 @@ async def remove_role_from_user(
     current_user: Uzytkownik = Depends(require_permission("admin.roles.assign")),
     db: AsyncSession = Depends(get_db)
 ):
-    """Usuwa rolę użytkownikowi."""
-    await db.execute(
-        delete(UzytkownikRola).where(
-            UzytkownikRola.uzytkownik_id == user_id,
-            UzytkownikRola.rola_id == role_id
-        )
-    )
+    # Raw delete
+    sql = text("""
+        DELETE FROM "UZYTKOWNIK_ROLE"
+        WHERE "uzytkownik_id" = :uid AND "rola_id" = :rid
+    """)
+    await db.execute(sql, {"uid": user_id, "rid": role_id})
     await db.commit()
     return {"message": "Rola usunięta"}
 
-# --- Zarządzanie rolami (CRUD) ---
-@router.get("/roles", response_model=list[RoleResponse])
+# ===================== ZARZĄDZANIE ROLAMI =====================
+
+@router.get("/roles", response_model=List[RoleResponse])
 async def list_roles(
     current_user: Uzytkownik = Depends(require_permission("admin.roles.view")),
     db: AsyncSession = Depends(get_db)
 ):
-    result = await db.execute(select(Rola))
-    return result.scalars().all()
+    sql = text("""
+        SELECT "id", "nazwa", "opis", "created_at"
+        FROM "ROLE"
+        ORDER BY "id"
+    """)
+    result = await db.execute(sql)
+    rows = result.mappings().all()
+    return [RoleResponse(**row) for row in rows]
 
 @router.post("/roles", response_model=RoleResponse)
 async def create_role(
@@ -135,44 +148,109 @@ async def create_role(
     current_user: Uzytkownik = Depends(require_permission("admin.roles.create")),
     db: AsyncSession = Depends(get_db)
 ):
-    existing = await db.execute(select(Rola).where(Rola.nazwa == role_data.nazwa))
-    if existing.scalar_one_or_none():
+    # Sprawdź czy istnieje
+    check_sql = text("SELECT 1 FROM \"ROLE\" WHERE \"nazwa\" = :nazwa")
+    exists = await db.execute(check_sql, {"nazwa": role_data.nazwa})
+    if exists.first():
         raise HTTPException(status_code=400, detail="Rola już istnieje")
-    new_role = Rola(nazwa=role_data.nazwa, opis=role_data.opis)
-    db.add(new_role)
+    # Insert raw
+    insert_sql = text("""
+        INSERT INTO "ROLE" ("nazwa", "opis")
+        VALUES (:nazwa, :opis)
+        RETURNING "id", "nazwa", "opis", "created_at"
+    """)
+    result = await db.execute(insert_sql, {"nazwa": role_data.nazwa, "opis": role_data.opis})
+    row = result.mappings().first()
     await db.commit()
-    await db.refresh(new_role)
-    return new_role
+    await log_audit(db, current_user.id, "ROLE", row["id"], "INSERT", None, role_data.dict())
+    return RoleResponse(**row)
 
-# PUT, DELETE analogicznie
+@router.put("/roles/{role_id}", response_model=RoleResponse)
+async def update_role(
+    role_id: int,
+    role_data: RoleUpdate,
+    current_user: Uzytkownik = Depends(require_permission("admin.roles.edit")),
+    db: AsyncSession = Depends(get_db)
+):
+    # Sprawdź czy rola istnieje
+    check_sql = text("SELECT 1 FROM \"ROLE\" WHERE \"id\" = :rid")
+    exists = await db.execute(check_sql, {"rid": role_id})
+    if not exists.first():
+        raise HTTPException(404, "Rola nie istnieje")
+    # Aktualizacja
+    update_sql = text("""
+        UPDATE "ROLE" 
+        SET "nazwa" = COALESCE(:nazwa, "nazwa"),
+            "opis" = COALESCE(:opis, "opis")
+        WHERE "id" = :rid
+        RETURNING "id", "nazwa", "opis", "created_at"
+    """)
+    result = await db.execute(update_sql, {
+        "rid": role_id,
+        "nazwa": role_data.nazwa,
+        "opis": role_data.opis
+    })
+    row = result.mappings().first()
+    await db.commit()
+    await log_audit(db, current_user.id, "ROLE", role_id, "UPDATE", None, role_data.dict())
+    return RoleResponse(**row)
 
-# --- Zarządzanie gatunkami (CRUD) – mogą też mieć dostęp Moderatorzy ---
-@router.get("/gatunki", response_model=list[GatunekResponse])
+@router.delete("/roles/{role_id}")
+async def delete_role(
+    role_id: int,
+    current_user: Uzytkownik = Depends(require_permission("admin.roles.delete")),
+    db: AsyncSession = Depends(get_db)
+):
+    delete_sql = text("DELETE FROM \"ROLE\" WHERE \"id\" = :rid")
+    result = await db.execute(delete_sql, {"rid": role_id})
+    if result.rowcount == 0:
+        raise HTTPException(404, "Rola nie istnieje")
+    await db.commit()
+    await log_audit(db, current_user.id, "ROLE", role_id, "DELETE", None, None)
+    return {"message": "Rola usunięta"}
+
+# ===================== ZARZĄDZANIE GATUNKAMI =====================
+
+@router.get("/gatunki", response_model=List[GatunekResponse])
 async def list_gatunki(
     skip: int = 0,
     limit: int = 100,
-    current_user: Uzytkownik = Depends(get_current_user),  # każdy zalogowany może przeglądać
+    current_user: Uzytkownik = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Lista gatunkow (publiczna dla zalogowanych)."""
-    result = await db.execute(select(Gatunek).where(Gatunek.deleted_at.is_(None)).offset(skip).limit(limit))
-    return result.scalars().all()
+    sql = text("""
+        SELECT "id", "nazwa_polska", "nazwa_lacina", "url_zdjecia", "opis", "created_at", "updated_at"
+        FROM "GATUNKI"
+        WHERE "deleted_at" IS NULL
+        ORDER BY "nazwa_polska"
+        LIMIT :limit OFFSET :skip
+    """)
+    result = await db.execute(sql, {"limit": limit, "skip": skip})
+    rows = result.mappings().all()
+    return [GatunekResponse(**row) for row in rows]
 
 @router.post("/gatunki", response_model=GatunekResponse)
 async def create_gatunek(
     data: GatunekCreate,
-    current_user: Uzytkownik = Depends(require_permission("gatunki.create")),  # Admin lub Moderator
+    current_user: Uzytkownik = Depends(require_permission("gatunki.create")),
     db: AsyncSession = Depends(get_db)
 ):
-    existing = await db.execute(select(Gatunek).where(Gatunek.nazwa_polska == data.nazwa_polska))
-    if existing.scalar_one_or_none():
+    # Sprawdź czy istnieje
+    check_sql = text("SELECT 1 FROM \"GATUNKI\" WHERE \"nazwa_polska\" = :nazwa")
+    exists = await db.execute(check_sql, {"nazwa": data.nazwa_polska})
+    if exists.first():
         raise HTTPException(status_code=400, detail="Gatunek już istnieje")
-    new_gatunek = Gatunek(**data.dict())
-    db.add(new_gatunek)
+    # Insert raw
+    insert_sql = text("""
+        INSERT INTO "GATUNKI" ("nazwa_polska", "nazwa_lacina", "url_zdjecia", "opis")
+        VALUES (:nazwa_polska, :nazwa_lacina, :url_zdjecia, :opis)
+        RETURNING "id", "nazwa_polska", "nazwa_lacina", "url_zdjecia", "opis", "created_at", "updated_at"
+    """)
+    result = await db.execute(insert_sql, data.dict())
+    row = result.mappings().first()
     await db.commit()
-    await db.refresh(new_gatunek)
-    await log_audit(db, current_user.id, "GATUNKI", new_gatunek.id, "INSERT", None, data.dict())
-    return new_gatunek
+    await log_audit(db, current_user.id, "GATUNKI", row["id"], "INSERT", None, data.dict())
+    return GatunekResponse(**row)
 
 @router.put("/gatunki/{gatunek_id}", response_model=GatunekResponse)
 async def update_gatunek(
@@ -181,15 +259,26 @@ async def update_gatunek(
     current_user: Uzytkownik = Depends(require_permission("gatunki.edit")),
     db: AsyncSession = Depends(get_db)
 ):
-    gatunek = await db.get(Gatunek, gatunek_id)
-    if not gatunek or gatunek.deleted_at:
-        raise HTTPException(status_code=404, detail="Gatunek nie znaleziony") 
-    for key, value in data.dict(exclude_unset=True).items(): # exclude_unset=True pozwala aktualizować tylko podane pola
-        setattr(gatunek, key, value)
-    await db.commit() 
-    await db.refresh(gatunek)
-    await log_audit(db, current_user.id, "GATUNKI", gatunek_id, "UPDATE", None, data.dict())
-    return gatunek
+    # Sprawdź czy istnieje i nie jest usunięty
+    check_sql = text("SELECT 1 FROM \"GATUNKI\" WHERE \"id\" = :gid AND \"deleted_at\" IS NULL")
+    exists = await db.execute(check_sql, {"gid": gatunek_id})
+    if not exists.first():
+        raise HTTPException(status_code=404, detail="Gatunek nie znaleziony")
+    
+    update_sql = text("""
+        UPDATE "GATUNKI"
+        SET "nazwa_polska" = COALESCE(:nazwa_polska, "nazwa_polska"),
+            "nazwa_lacina" = COALESCE(:nazwa_lacina, "nazwa_lacina"),
+            "url_zdjecia" = COALESCE(:url_zdjecia, "url_zdjecia"),
+            "opis" = COALESCE(:opis, "opis")
+        WHERE "id" = :gid
+        RETURNING "id", "nazwa_polska", "nazwa_lacina", "url_zdjecia", "opis", "created_at", "updated_at"
+    """)
+    result = await db.execute(update_sql, {**data.dict(exclude_unset=True), "gid": gatunek_id})
+    row = result.mappings().first()
+    await db.commit()
+    await log_audit(db, current_user.id, "GATUNKI", gatunek_id, "UPDATE", None, data.dict(exclude_unset=True))
+    return GatunekResponse(**row)
 
 @router.delete("/gatunki/{gatunek_id}")
 async def delete_gatunek(
@@ -197,11 +286,16 @@ async def delete_gatunek(
     current_user: Uzytkownik = Depends(require_permission("gatunki.delete")),
     db: AsyncSession = Depends(get_db)
 ):
-    """Miekkie usuniecie gatunku."""
-    gatunek = await db.get(Gatunek, gatunek_id)
-    if not gatunek:
-        raise HTTPException(status_code=404)
-    gatunek.deleted_at = func.now()
+    # Miękkie usunięcie – ustawienie deleted_at
+    update_sql = text("""
+        UPDATE "GATUNKI"
+        SET "deleted_at" = NOW()
+        WHERE "id" = :gid AND "deleted_at" IS NULL
+        RETURNING "id"
+    """)
+    result = await db.execute(update_sql, {"gid": gatunek_id})
+    if result.rowcount == 0:
+        raise HTTPException(status_code=404, detail="Gatunek nie znaleziony")
     await db.commit()
     await log_audit(db, current_user.id, "GATUNKI", gatunek_id, "DELETE", None, None)
     return {"message": "Gatunek usunięty"}

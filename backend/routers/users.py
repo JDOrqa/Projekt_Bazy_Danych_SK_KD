@@ -3,7 +3,7 @@
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, text
 from database import get_db
 from schemas.user import UserProfile, UserUpdate, ChangePassword
 from dependencies.auth import get_current_user
@@ -15,7 +15,7 @@ from models.lowisko import Lowisko
 from models.gatunek import Gatunek
 from utils.security import get_password_hash, verify_password
 from services.audit_log import log_audit
-
+from typing import List
 router = APIRouter()
 
 async def get_user_roles(user_id: int, db: AsyncSession) -> list[str]:
@@ -85,55 +85,75 @@ async def get_dashboard_stats(
     current_user: Uzytkownik = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
+    user_id = current_user.id
 
-    # Liczba sesji
-    sesje_result = await db.execute(
-        select(func.count()).select_from(SesjaPolowu).where(SesjaPolowu.uzytkownik_id == current_user.id)
-    )
-    sesje_count = sesje_result.scalar()
-    
-    # Liczba ryb
-    ryby_result = await db.execute(
-        select(func.count())
-        .select_from(ZlowionaRyba)
-        .join(SesjaPolowu)
-        .where(SesjaPolowu.uzytkownik_id == current_user.id)
-    )
-    ryby_count = ryby_result.scalar()
-    
-    # Ulubione łowisko
-    fav_result = await db.execute(
-        select(Lowisko.nazwa, func.count(SesjaPolowu.id))
-        .join(SesjaPolowu, Lowisko.id == SesjaPolowu.lowisko_id)
-        .where(SesjaPolowu.uzytkownik_id == current_user.id)
-        .group_by(Lowisko.id, Lowisko.nazwa)
-        .order_by(func.count().desc())
-        .limit(1)
-    )
-    favorite = fav_result.first()
-    
-    # Ostatnie 5 połowów
-    recent_result = await db.execute(
-        select(ZlowionaRyba, Gatunek.nazwa_polska, SesjaPolowu.start_czas)
-        .join(Gatunek, ZlowionaRyba.gatunek_id == Gatunek.id)
-        .join(SesjaPolowu, ZlowionaRyba.sesja_id == SesjaPolowu.id)
-        .where(SesjaPolowu.uzytkownik_id == current_user.id)
-        .order_by(ZlowionaRyba.created_at.desc())
-        .limit(5)
-    )
-    recent_rows = recent_result.all()
-    recent_catches = [
-        {
-            "gatunek": row[1],
-            "waga_kg": row[0].waga_kg,
-            "data": row[2]
-        }
-        for row in recent_rows
-    ]
-    
+    # 1. Liczba sesji – raw SQL
+    result = await db.execute(
+    text('SELECT COUNT(*) FROM "SESJE_POLOWU" WHERE uzytkownik_id = :user_id'),
+    {"user_id": user_id}
+)
+    liczba_sesji = result.scalar()
+
+    # 2. Liczba ryb – raw SQL z JOIN
+    result = await db.execute(
+    text("""
+        SELECT COUNT(*)
+        FROM "ZLOWIONE_RYBY"
+        JOIN "SESJE_POLOWU" ON "ZLOWIONE_RYBY".sesja_id = "SESJE_POLOWU".id
+        WHERE "SESJE_POLOWU".uzytkownik_id = :user_id
+    """),
+    {"user_id": user_id}
+)
+    liczba_ryb = result.scalar()
+
+    # 3. Ulubione łowisko – raw SQL z GROUP BY
+    result = await db.execute(
+    text("""
+        SELECT "LOWISKA".nazwa, COUNT(*) as liczba
+        FROM "SESJE_POLOWU"
+        JOIN "LOWISKA" ON "SESJE_POLOWU".lowisko_id = "LOWISKA".id
+        WHERE "SESJE_POLOWU".uzytkownik_id = :user_id
+        GROUP BY "LOWISKA".id
+        ORDER BY liczba DESC
+        LIMIT 1
+    """),
+    {"user_id": user_id}
+)
+    ulubione = result.first()
+    ulubione_nazwa = ulubione[0] if ulubione else None
+
+    # 4. Ostatnie 5 połowów – raw SQL z trzema tabelami
+    result = await db.execute(
+    text("""
+        SELECT
+            "ZLOWIONE_RYBY".id,
+            "ZLOWIONE_RYBY".waga_kg,
+            "ZLOWIONE_RYBY".dlugosc_cm,
+            "ZLOWIONE_RYBY".wypuszczona,
+            "ZLOWIONE_RYBY".czas_zlowienia,
+            "GATUNKI".nazwa_polska,
+            "SESJE_POLOWU".start_czas
+        FROM "ZLOWIONE_RYBY"
+        JOIN "GATUNKI" ON "ZLOWIONE_RYBY".gatunek_id = "GATUNKI".id
+        JOIN "SESJE_POLOWU" ON "ZLOWIONE_RYBY".sesja_id = "SESJE_POLOWU".id
+        WHERE "SESJE_POLOWU".uzytkownik_id = :user_id
+        ORDER BY "ZLOWIONE_RYBY".created_at DESC
+        LIMIT 5
+    """),
+    {"user_id": user_id}
+)
+    rows = result.all()
+    ostatnie_polowy = []
+    for row in rows:
+        ostatnie_polowy.append({
+            "gatunek": row[5],           # nazwa_polska
+            "waga_kg": float(row[1]) if row[1] is not None else None,
+            "data": row[6]               # start_czas
+        })
+
     return {
-        "liczba_sesji": sesje_count,
-        "liczba_zlowionych_ryb": ryby_count,
-        "ulubione_lowisko": favorite[0] if favorite else None,
-        "ostatnie_polowy": recent_catches
+        "liczba_sesji": liczba_sesji,
+        "liczba_zlowionych_ryb": liczba_ryb,
+        "ulubione_lowisko": ulubione_nazwa,
+        "ostatnie_polowy": ostatnie_polowy
     }

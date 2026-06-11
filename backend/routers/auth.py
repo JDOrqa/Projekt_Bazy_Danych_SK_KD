@@ -22,6 +22,7 @@ from utils.security import (
 from models.uzytkownik import Uzytkownik
 from models.rola import Rola, UzytkownikRola
 from dependencies.auth import get_current_user
+from fastapi import Response
 
 router = APIRouter()
 
@@ -124,7 +125,7 @@ async def login(
 ):
     
    # Logowanie użytkownika (grant_type=password).
-   # Zwraca access_token (ważny 60 sekund) oraz refresh_token (ważny 7 dni).
+   # Zwraca access_token  oraz refresh_token
    # W przypadku nieprawidłowych danych lub nieaktywnego konta zwraca 401.
     
     # 1. Pobierz użytkownika po emailu

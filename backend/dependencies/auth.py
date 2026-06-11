@@ -7,7 +7,7 @@ from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from jose import JWTError
-
+from typing import List
 from database import get_db
 from models.uzytkownik import Uzytkownik
 from models.rola import Rola, UzytkownikRola

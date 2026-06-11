@@ -90,7 +90,7 @@ function AdminPanel() {
           <tr>
             <th>ID</th>
             <th>Email</th>
-            <th>Imię</th>
+            <th>Imię i Nazwisko</th>
             <th>Status</th>
             <th>Role</th>
             <th>Akcje</th>

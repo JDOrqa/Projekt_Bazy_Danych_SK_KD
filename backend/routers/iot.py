@@ -2,9 +2,9 @@ from datetime import datetime
 from typing import Optional, List
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import select, desc, func
+from sqlalchemy import select, desc, func, text
 from sqlalchemy.ext.asyncio import AsyncSession
-
+from typing import List
 from database import get_db
 from dependencies.auth import get_current_user
 from models.stacja_pomiarowa import StacjaPomiarowa
@@ -31,8 +31,7 @@ async def _is_admin(current_user: Uzytkownik, db: AsyncSession) -> bool:
         .where(UzytkownikRola.uzytkownik_id == current_user.id)
     )
     user_roles = result.scalars().all()
-    return "Admin" in user_roles
-
+    return "Admin" in user_roles or "Właściciel" in user_roles
 
 @router.get("/stations", response_model=List[StacjaPomiarowaResponse])
 async def list_stations(

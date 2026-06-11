@@ -1,15 +1,28 @@
 # backend/routers/measure.py
-from fastapi import APIRouter, File, UploadFile, HTTPException, Form
+from fastapi import APIRouter, File, UploadFile, HTTPException, Form, Depends
 import logging
 import cv2
 import numpy as np
-from typing import Optional, List, Dict, Tuple
+from typing import Optional, List, Dict, Tuple   # <--- DODAJ Tuple
 import base64
 import json
+import uuid
+import os
+from datetime import datetime
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import func
 from ultralytics import YOLO
 import torch
 
+from database import get_db
+from dependencies.auth import get_current_user
+from models.uzytkownik import Uzytkownik
+from models.zdjecie_ryby import ZdjecieRyby
+from models.wynik_przetwarzania import WynikPrzetwarzania
+from models.pomiar_ryby import PomiarRyby
+
 router = APIRouter()
+
 
 species_model = None
 
@@ -339,15 +352,20 @@ def estimate_fish_length(
 # ENDPOINT
 # ═══════════════════════════════════════════════════════
 
+UPLOAD_DIR = "uploads"
+os.makedirs(UPLOAD_DIR, exist_ok=True)
 @router.post("/fish")
 async def measure_fish_endpoint(
     file: UploadFile = File(...),
     card_points: str = Form(...),
     draw_boxes: bool = Form(True),
+    current_user: Uzytkownik = Depends(get_current_user),  
+    db: AsyncSession = Depends(get_db)                     
 ):
     """
-    Mierzy długość ryby oraz rozpoznaje gatunek.
+    Mierzy długość ryby, rozpoznaje gatunek i zapisuje zdjęcie oraz wyniki do bazy.
     """
+    # 1. Walidacja pliku i punktów (istniejąca)
     if not file.content_type.startswith("image/"):
         raise HTTPException(400, detail="Plik nie jest obrazem")
     contents = await file.read()
@@ -364,6 +382,7 @@ async def measure_fish_endpoint(
     except (json.JSONDecodeError, ValueError) as e:
         raise HTTPException(400, detail=f"Błędne card_points: {e}")
 
+    # 2. Wykonaj pomiar (istniejąca funkcja)
     try:
         result = estimate_fish_length(contents, pts, draw_boxes=draw_boxes)
     except Exception as e:
@@ -373,5 +392,62 @@ async def measure_fish_endpoint(
     if result.get("dlugosc_cm") is None:
         raise HTTPException(422, detail="Nie wykryto ryby na zdjęciu")
 
-    result["sukces"] = True
-    return result
+    # 3. Zapisz zdjęcie na dysku
+    ext = file.filename.split('.')[-1] if '.' in file.filename else 'jpg'
+    image_uuid = str(uuid.uuid4())
+    image_path = os.path.join(UPLOAD_DIR, f"{image_uuid}.{ext}")
+    with open(image_path, "wb") as f:
+        f.write(contents)
+
+    # 4. Utwórz rekord w tabeli ZDJECIA_RYB
+    zdjecie = ZdjecieRyby(
+        url_zdjecia=image_path,
+        uzytkownik_id=current_user.id,
+        created_at=func.now()
+    )
+    db.add(zdjecie)
+    await db.flush()  # aby otrzymać zdjecie.id
+
+    # 5. Zapisz wynik do WYNIKI_PRZETWARZANIA
+    wynik = WynikPrzetwarzania(
+        zdjecie_id=zdjecie.id,
+        dlugosc_oszacowana_cm=result.get("dlugosc_cm"),
+        dlugosc_px=result.get("dlugosc_px"),
+        bbox=result.get("bbox"),
+        ufnosc=result.get("ufnosc_pomiaru", 0.0),
+        wersja_algorytmu="yolo_v11_measure",
+        zweryfikowane=False,
+        przetworzono=datetime.utcnow()
+    )
+    # Dodaj gatunek (jeśli wykryty) – wymaga dodania kolumn w modelu
+    if result.get("gatunek"):
+        # Zakładamy, że dodałeś kolumny `gatunek` i `ufnosc_gatunku` do modelu
+        wynik.gatunek = result.get("gatunek")
+        wynik.ufnosc_gatunku = result.get("ufnosc_gatunku")
+    db.add(wynik)
+    await db.flush()
+
+    # 6. (Opcjonalnie) zapisz szczegółowe punkty w POMIARY_RYB
+    if result.get("box_points"):
+        pomiar = PomiarRyby(
+            wynik_przetwarzania_id=wynik.id,
+            punkt_glowy=None,   # brak detekcji głowy w obecnym kodzie
+            punkt_ogona=None,
+            dlugosc_px=result.get("dlugosc_px"),
+            metoda="ai_yolo"
+        )
+        db.add(pomiar)
+
+    await db.commit()
+
+    # 7. Przygotuj odpowiedź (wzbogaconą o ID)
+    response = {
+        "wynik_id": wynik.id,
+        "zdjecie_id": zdjecie.id,
+        "dlugosc_cm": result.get("dlugosc_cm"),
+        "gatunek": result.get("gatunek"),
+        "ufnosc_gatunku": result.get("ufnosc_gatunku"),
+        "image_base64": result.get("image_base64"),
+        "sukces": True
+    }
+    return response

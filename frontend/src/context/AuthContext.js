@@ -54,7 +54,7 @@ export const AuthProvider = ({ children }) => { // Główna logika autoryzacji �
         if (accessToken) {
             axios.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`; // Ustawiamy token w nagłówkach, żeby kolejne żądania były autoryzowane
             fetchUser(accessToken);
-            const interval = setInterval(refreshAccessToken, 1000 * 50); // Odświeżaj co 50 sekund 
+            const interval = setInterval(refreshAccessToken, 1000 * 60 * 15); // Odświeżaj co 15 min
             return () => clearInterval(interval);
         } else {
             delete axios.defaults.headers.common['Authorization']; // Jeśli nie mamy tokena, upewniamy się, że nagłówek jest czysty

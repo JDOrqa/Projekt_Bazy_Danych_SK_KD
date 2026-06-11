@@ -10,7 +10,7 @@ class PomiarRyby(Base):
     __tablename__ = "POMIARY_RYB"
     
     id = Column(BigInteger, primary_key=True, autoincrement=True)
-    wynik_przetwarzania_id = Column(BigInteger, ForeignKey("WYNIKI_PRZETWARZANIA.id"), nullable=False)
+    wynik_przetwarzania_id = Column(BigInteger, ForeignKey("WYNIKI_PRZETWARZANIA.id", ondelete="CASCADE"), nullable=False)
     punkt_glowy = Column(JSONB)      # {x: 100, y: 200}
     punkt_ogona = Column(JSONB)
     dlugosc_px = Column(Integer)

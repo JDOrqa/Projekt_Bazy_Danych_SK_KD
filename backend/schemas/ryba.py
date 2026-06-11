@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
 
 
 class ZlowionaRybaCreateRequest(BaseModel):
@@ -43,11 +43,10 @@ class ZlowionaRybaResponse(BaseModel):
     zdjecie_url: Optional[str] = None
     uwagi: Optional[str] = None
     czas_zlowienia: datetime
-
-    # Rozszerzone pola (dołączane przy JOIN)
     nazwa_gatunku: Optional[str] = None
     nazwa_metody: Optional[str] = None
     nazwa_przynety: Optional[str] = None
+    zdjecia: List[str] = []  
 
     class Config:
         from_attributes = True

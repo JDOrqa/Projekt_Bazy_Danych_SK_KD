@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from typing import List
+from typing import List, Optional
 from datetime import datetime
-
+from services.limits_validator import LimitValidator
 from database import get_db
 from dependencies.auth import get_current_user
 from models.uzytkownik import Uzytkownik
@@ -13,6 +13,8 @@ from models.lowisko import Lowisko
 from models.gatunek import Gatunek
 from models.metoda_polowu import MetodaPolowu
 from models.przyneta import Przyneta
+from models.zdjecie_ryby import ZdjecieRyby
+from models.wynik_przetwarzania import WynikPrzetwarzania
 
 from schemas.sesja import (
     SesjaStartRequest, SesjaEndRequest, SesjaUpdateRequest,
@@ -60,23 +62,25 @@ def format_sesja_response(sesja: SesjaPolowu) -> SesjaResponse:
     return SesjaResponse(**data)
 
 
-def format_ryba_response(ryba: ZlowionaRyba, gatunek=None, metoda=None, przyneta=None) -> ZlowionaRybaResponse:
-    return ZlowionaRybaResponse(
-        id=ryba.id,
-        sesja_id=ryba.sesja_id,
-        gatunek_id=ryba.gatunek_id,
-        waga_g=ryba.waga_kg,
-        dlugosc_cm=ryba.dlugosc_cm,
-        metoda_id=ryba.metoda_id,
-        przyneta_id=ryba.przyneta_id,
-        wypuszczona=ryba.wypuszczona,
-        zdjecie_url=None,
-        uwagi=ryba.uwagi,
-        czas_zlowienia=ryba.czas_zlowienia,
-        nazwa_gatunku=gatunek.nazwa_polska if gatunek else None,
-        nazwa_metody=metoda.nazwa if metoda else None,
-        nazwa_przynety=przyneta.nazwa if przyneta else None,
-    )
+def _format_ryba_with_photos(ryba, gatunek, metoda, przyneta, zdjecia):
+    """Pomocnicza funkcja do budowania słownika ryby z listą zdjęć."""
+    return {
+        "id": ryba.id,
+        "sesja_id": ryba.sesja_id,
+        "gatunek_id": ryba.gatunek_id,
+        "waga_g": ryba.waga_kg,
+        "dlugosc_cm": ryba.dlugosc_cm,
+        "metoda_id": ryba.metoda_id,
+        "przyneta_id": ryba.przyneta_id,
+        "wypuszczona": ryba.wypuszczona,
+        "czas_zlowienia": ryba.czas_zlowienia,
+        "uwagi": ryba.uwagi,
+        "nazwa_gatunku": gatunek.nazwa_polska if gatunek else None,
+        "nazwa_metody": metoda.nazwa if metoda else None,
+        "nazwa_przynety": przyneta.nazwa if przyneta else None,
+        "zdjecia": zdjecia,            # lista URLi zdjęć
+        "zdjecie_url": None,
+    }
 
 
 # ============== SŁOWNIKI ==============
@@ -153,7 +157,7 @@ async def end_session(
     return format_sesja_response(sesja)
 
 
-@router.get("/sesje/aktywna", response_model=SesjaResponse)
+@router.get("/sesje/aktywna", response_model=SesjaDetailResponse)
 async def get_active_session(
     current_user: Uzytkownik = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
@@ -167,7 +171,30 @@ async def get_active_session(
     sesja = result.scalar_one_or_none()
     if not sesja:
         raise HTTPException(status_code=404, detail="Brak aktywnej sesji")
-    return format_sesja_response(sesja)
+    
+    lowisko = await db.get(Lowisko, sesja.lowisko_id)
+    ryby_result = await db.execute(
+        select(ZlowionaRyba).where(ZlowionaRyba.sesja_id == sesja.id)
+    )
+    ryby = ryby_result.scalars().all()
+    
+    ryby_responses = []
+    for r in ryby:
+        g = await db.get(Gatunek, r.gatunek_id) if r.gatunek_id else None
+        m = await db.get(MetodaPolowu, r.metoda_id) if r.metoda_id else None
+        p = await db.get(Przyneta, r.przyneta_id) if r.przyneta_id else None
+        photos = await db.execute(
+            select(ZdjecieRyby.url_zdjecia).where(ZdjecieRyby.zlowiona_ryba_id == r.id)
+        )
+        photo_urls = [url for (url,) in photos.all()]
+        ryby_responses.append(_format_ryba_with_photos(r, g, m, p, photo_urls))
+    
+    response_data = format_sesja_response(sesja).dict()
+    response_data["zlowione_ryby"] = ryby_responses
+    response_data["nazwa_lowiska"] = lowisko.nazwa if lowisko else None
+    response_data["nazwa_uzytkownika"] = current_user.email
+    
+    return SesjaDetailResponse(**response_data)
 
 
 @router.get("/sesje", response_model=List[SesjaResponse])
@@ -206,7 +233,11 @@ async def get_session_details(
         g = await db.get(Gatunek, r.gatunek_id) if r.gatunek_id else None
         m = await db.get(MetodaPolowu, r.metoda_id) if r.metoda_id else None
         p = await db.get(Przyneta, r.przyneta_id) if r.przyneta_id else None
-        ryby_responses.append(format_ryba_response(r, g, m, p).dict())
+        photos = await db.execute(
+            select(ZdjecieRyby.url_zdjecia).where(ZdjecieRyby.zlowiona_ryba_id == r.id)
+        )
+        photo_urls = [url for (url,) in photos.all()]
+        ryby_responses.append(_format_ryba_with_photos(r, g, m, p, photo_urls))
 
     lowisko = await db.get(Lowisko, sesja.lowisko_id)
 
@@ -256,10 +287,14 @@ async def delete_session(
 
 # ============== ZŁOWIONE RYBY ==============
 
+class ZlowionaRybaCreateRequestWithResult(ZlowionaRybaCreateRequest):
+    wynik_id: Optional[int] = None   # ID wyniku pomiaru z tabeli WYNIKI_PRZETWARZANIA
+
+
 @router.post("/sesje/{sesja_id}/ryby", status_code=status.HTTP_201_CREATED)
 async def add_fish(
     sesja_id: int,
-    request: ZlowionaRybaCreateRequest,
+    request: ZlowionaRybaCreateRequestWithResult,
     current_user: Uzytkownik = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
@@ -281,6 +316,36 @@ async def add_fish(
     if request.przyneta_id and not przyneta:
         raise HTTPException(status_code=404, detail="Przynęta nie istnieje")
 
+    # Jeśli podano wynik_id, pobierz dane z pomiaru
+    if request.wynik_id:
+        wynik = await db.get(WynikPrzetwarzania, request.wynik_id)
+        if wynik:
+            if request.dlugosc_cm is None and wynik.dlugosc_oszacowana_cm is not None:
+                request.dlugosc_cm = wynik.dlugosc_oszacowana_cm
+
+    # ===== WALIDACJA LIMITÓW =====
+    warnings, wymusi_wypuszczenie = await LimitValidator.validate_catch(
+        db=db,
+        uzytkownik_id=current_user.id,
+        sesja_id=sesja_id,
+        gatunek_id=request.gatunek_id,
+        dlugosc_cm=request.dlugosc_cm,
+        lowisko_id=sesja.lowisko_id,
+    )
+
+    if wymusi_wypuszczenie and not request.wypuszczona:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "typ": "wymuszenie_wypuszczenia",
+                "wiadomosc": "Ta ryba musi zostać wypuszczona. Zaznacz 'Wypuszczona' aby potwierdzić.",
+                "ostrzezenia": [
+                    {"typ": w.typ_ostrzezenia, "wiadomosc": w.wiadomosc}
+                    for w in warnings
+                ],
+            }
+        )
+
     ryba = ZlowionaRyba(
         sesja_id=sesja_id,
         gatunek_id=request.gatunek_id,
@@ -293,8 +358,24 @@ async def add_fish(
         czas_zlowienia=datetime.utcnow(),
     )
     db.add(ryba)
+    await db.flush()
+
+    # Jeśli istnieje wynik, powiąż zdjęcie z tą rybą
+    if request.wynik_id:
+        wynik = await db.get(WynikPrzetwarzania, request.wynik_id)
+        if wynik and wynik.zdjecie_id:
+            zdjecie = await db.get(ZdjecieRyby, wynik.zdjecie_id)
+            if zdjecie:
+                zdjecie.zlowiona_ryba_id = ryba.id
+                db.add(zdjecie)
+
     await db.commit()
     await db.refresh(ryba)
+
+    photos = await db.execute(
+        select(ZdjecieRyby.url_zdjecia).where(ZdjecieRyby.zlowiona_ryba_id == ryba.id)
+    )
+    photo_urls = [url for (url,) in photos.all()]
 
     return ZlowionaRybaResponse(
         id=ryba.id,
@@ -335,7 +416,12 @@ async def list_fish(
         g = await db.get(Gatunek, r.gatunek_id) if r.gatunek_id else None
         m = await db.get(MetodaPolowu, r.metoda_id) if r.metoda_id else None
         p = await db.get(Przyneta, r.przyneta_id) if r.przyneta_id else None
-        responses.append(format_ryba_response(r, g, m, p))
+        photos = await db.execute(
+            select(ZdjecieRyby.url_zdjecia).where(ZdjecieRyby.zlowiona_ryba_id == r.id)
+        )
+        photo_urls = [url for (url,) in photos.all()]
+        ryba_dict = _format_ryba_with_photos(r, g, m, p, photo_urls)
+        responses.append(ZlowionaRybaResponse(**ryba_dict))
     return responses
 
 
@@ -359,11 +445,15 @@ async def update_fish(
     await db.commit()
     await db.refresh(ryba)
 
-    gatunek = await db.get(Gatunek, ryba.gatunek_id) if ryba.gatunek_id else None
-    metoda = await db.get(MetodaPolowu, ryba.metoda_id) if ryba.metoda_id else None
-    przyneta = await db.get(Przyneta, ryba.przyneta_id) if ryba.przyneta_id else None
-
-    return format_ryba_response(ryba, gatunek, metoda, przyneta).dict()
+    g = await db.get(Gatunek, ryba.gatunek_id) if ryba.gatunek_id else None
+    m = await db.get(MetodaPolowu, ryba.metoda_id) if ryba.metoda_id else None
+    p = await db.get(Przyneta, ryba.przyneta_id) if ryba.przyneta_id else None
+    photos = await db.execute(
+        select(ZdjecieRyby.url_zdjecia).where(ZdjecieRyby.zlowiona_ryba_id == ryba.id)
+    )
+    photo_urls = [url for (url,) in photos.all()]
+    ryba_dict = _format_ryba_with_photos(ryba, g, m, p, photo_urls)
+    return ZlowionaRybaResponse(**ryba_dict)
 
 
 @router.delete("/ryby/{ryba_id}", status_code=status.HTTP_204_NO_CONTENT)

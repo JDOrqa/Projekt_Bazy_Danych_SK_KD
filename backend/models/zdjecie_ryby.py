@@ -11,7 +11,8 @@ class ZdjecieRyby(Base):
     __tablename__ = "ZDJECIA_RYB"
     
     id = Column(BigInteger, primary_key=True, autoincrement=True)
-    zlowiona_ryba_id = Column(BigInteger, ForeignKey("ZLOWIONE_RYBY.id"), nullable=True)
+    uzytkownik_id = Column(BigInteger, ForeignKey("UZYTKOWNICY.id"), nullable=True)
+    zlowiona_ryba_id = Column(BigInteger, ForeignKey("ZLOWIONE_RYBY.id", ondelete="CASCADE"), nullable=True)
     url_zdjecia = Column(Text, nullable=False)      # ścieżka do pliku
     lokalizacja_gps = Column(Geography('POINT', srid=4326))
     czas_wykonania = Column(TIMESTAMP)

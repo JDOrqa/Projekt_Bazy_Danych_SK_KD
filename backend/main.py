@@ -22,6 +22,8 @@ from models.stacja_pomiarowa import StacjaPomiarowa
 from models.odczyt_srodowiskowy import OdczytSrodowiskowy
 from utils.security import get_password_hash
 from routers import measure
+from fastapi.staticfiles import StaticFiles
+import os
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -357,17 +359,17 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan
 )
-
+os.makedirs("uploads", exist_ok=True)
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 # CORS – dla frontendu React
 app.add_middleware(
     CORSMiddleware,  # Dodaje middleware do aplikacji FastAPI (obsługa CORS)
 
-    allow_origins=["*"],  
+    allow_origins=["*"],
     # Zezwala na wszystkie originy w środowisku deweloperskim.
 
     allow_credentials=False,  
-    # Wyłączone w trybie "wszystkie originy"; jeśli potrzebujesz ciasteczek,
-    # zmień na konkretną listę originów i ustaw allow_credentials=True.
+    
 
     allow_methods=["*"],  
     # Zezwala na wszystkie metody HTTP:
